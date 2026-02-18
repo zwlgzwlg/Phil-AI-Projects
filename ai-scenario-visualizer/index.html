@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Scenario Visualizer</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <h1>AI Scenario Visualizer</h1>
+      <p>
+        Directed graph of placeholder AI futures. Edge weights represent
+        <strong>"possibly results in"</strong> transition probabilities.
+      </p>
+    </header>
+
+    <section class="controls">
+      <div class="control-title-row">
+        <h2>AI Capability</h2>
+        <output id="capability-value">Medium (1-10% AI-attributable economy)</output>
+      </div>
+
+      <input
+        id="capability-slider"
+        type="range"
+        min="0"
+        max="6"
+        value="1"
+        step="1"
+        aria-label="AI capability"
+      >
+
+      <div class="button-row">
+        <button id="tick-down" type="button">Tick -</button>
+        <button id="tick-up" type="button">Tick +</button>
+        <button id="toggle-auto" type="button">Start Auto Tick</button>
+        <button id="reset-camera" type="button">Reset Camera</button>
+      </div>
+
+      <p id="trend-hint">
+        Selected AI capability band: Medium (1-10% AI-attributable economy).
+      </p>
+    </section>
+
+    <main class="workspace">
+      <section id="cy"></section>
+      <aside class="details">
+        <h3>Selection</h3>
+        <p id="selection-text">
+          Click a node or edge to inspect transition details.
+        </p>
+        <h3>Development Intensity</h3>
+        <ul class="intensity-legend">
+          <li><span class="swatch swatch-low"></span>Low</li>
+          <li><span class="swatch swatch-medium"></span>Medium</li>
+          <li><span class="swatch swatch-high"></span>High</li>
+          <li><span class="swatch swatch-extreme"></span>Extreme</li>
+        </ul>
+      </aside>
+    </main>
+
+    <section class="explorer">
+      <div class="explorer-header">
+        <h2>Model Explorer</h2>
+        <p>
+          Start at a node, inspect accessible transitions (including reflexive),
+          click an arrow, then choose post-transition capability and duration.
+        </p>
+      </div>
+
+      <div class="explorer-toolbar">
+        <label for="explorer-start-node">Start Node</label>
+        <select id="explorer-start-node" aria-label="Explorer start node"></select>
+        <button id="explorer-reset" type="button">Start / Reset Explorer</button>
+      </div>
+
+      <p id="explorer-status"></p>
+      <p id="explorer-pending">No transition selected yet.</p>
+
+      <div class="explorer-actions">
+        <label for="explorer-next-capability">Capability After Transition</label>
+        <select id="explorer-next-capability" aria-label="Capability after transition" disabled></select>
+        <label for="explorer-next-duration">Transition Duration</label>
+        <select id="explorer-next-duration" aria-label="Transition duration" disabled></select>
+        <button id="explorer-apply-year" type="button" disabled>
+          Apply Selected Transition
+        </button>
+      </div>
+
+      <section id="explorer-cy"></section>
+
+      <h3>Explorer History (Largest Time Scale)</h3>
+      <ol id="explorer-history"></ol>
+    </section>
+
+    <section class="editor">
+      <div class="editor-header">
+        <h2>Scenario Editor</h2>
+        <p>
+          Edit nodes, development intensity profiles, notes, and outgoing arrows with
+          capability-dependent transition intensity.
+        </p>
+      </div>
+
+      <div class="editor-grid">
+        <div class="editor-card">
+          <h3>Node</h3>
+          <div class="editor-row">
+            <label for="editor-node-select">Selected Node</label>
+            <select id="editor-node-select" aria-label="Selected node"></select>
+            <button id="editor-add-node" type="button">Add Node</button>
+            <button id="editor-delete-node" type="button">Delete Node</button>
+          </div>
+          <div class="editor-row">
+            <label for="editor-node-label">Node Label</label>
+            <input id="editor-node-label" type="text" placeholder="Node label">
+          </div>
+          <h4>Development Intensity by Capability</h4>
+          <div id="editor-intensity-profile" class="profile-grid"></div>
+          <h4>Rationale Notes</h4>
+          <textarea id="editor-node-notes" rows="5" placeholder="Explain rationale for this node..."></textarea>
+          <div class="editor-row">
+            <button id="editor-save-node" type="button">Save Node Properties</button>
+          </div>
+        </div>
+
+        <div class="editor-card">
+          <h3>Outgoing Arrows</h3>
+          <div class="editor-row">
+            <label for="editor-edge-select">Arrow</label>
+            <select id="editor-edge-select" aria-label="Selected arrow"></select>
+            <button id="editor-new-edge" type="button">New Arrow</button>
+            <button id="editor-delete-edge" type="button">Delete Arrow</button>
+          </div>
+          <div class="editor-row">
+            <label for="editor-edge-target">Target Node</label>
+            <select id="editor-edge-target" aria-label="Arrow target node"></select>
+          </div>
+          <h4>Transition Intensity by Capability</h4>
+          <div id="editor-edge-profile" class="profile-grid"></div>
+          <div class="editor-row">
+            <button id="editor-save-edge" type="button">Save Arrow</button>
+          </div>
+        </div>
+      </div>
+
+      <p id="editor-status">Editor ready.</p>
+    </section>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
