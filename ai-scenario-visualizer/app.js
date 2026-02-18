@@ -46,7 +46,7 @@ const capabilityBands = [
   { key: "high", label: "High", minPct: 10, maxPct: 50, representativeShare: 0.3 },
   { key: "very_high", label: "Very high", minPct: 50, maxPct: 75, representativeShare: 0.625 },
   { key: "extremely_high", label: "Extremely high", minPct: 75, maxPct: 90, representativeShare: 0.825 },
-  { key: "human_obselescence", label: "Human obselescence", minPct: 90, maxPct: 100, representativeShare: 0.95 },
+  { key: "human_obsolescence", label: "Human obsolescence", minPct: 90, maxPct: 100, representativeShare: 0.95 },
   { key: "omnipotent", label: "Omnipotent", minPct: 100, maxPct: 100, representativeShare: 1.0 }
 ];
 
@@ -737,16 +737,16 @@ const buildExplorerElements = () => {
     }
   });
 
-  const center = { x: 360, y: 220 };
+  const centre = { x: 360, y: 220 };
   const radius = 180;
   const positionById = new Map();
-  positionById.set(sourceNodeId, center);
+  positionById.set(sourceNodeId, centre);
 
   targetNodeIds.forEach((nodeId, index) => {
     const angle = (Math.PI * 2 * index) / Math.max(targetNodeIds.length, 1);
     positionById.set(nodeId, {
-      x: center.x + radius * Math.cos(angle),
-      y: center.y + radius * Math.sin(angle)
+      x: centre.x + radius * Math.cos(angle),
+      y: centre.y + radius * Math.sin(angle)
     });
   });
 

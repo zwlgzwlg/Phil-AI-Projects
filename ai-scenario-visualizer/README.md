@@ -1,4 +1,4 @@
-# AI Scenario Visualizer (Cytoscape)
+# AI Scenario Visualiser (Cytoscape)
 
 Small placeholder demo of directed AI-future scenarios.
 
@@ -71,10 +71,10 @@ Capability bands:
 - `High`: 10-50%
 - `Very high`: 50-75%
 - `Extremely high`: 75-90%
-- `Human obselescence`: 90-100%
+- `Human obsolescence`: 90-100%
 - `Omnipotent`: 100%
 
-Outgoing transitions are source-normalized when needed so explicit outgoing total stays below `1.0`.
+Outgoing transitions are source-normalised when needed so explicit outgoing total stays below `1.0`.
 
 `implicit_self_transition = 1 - explicit_outgoing_total`
 
