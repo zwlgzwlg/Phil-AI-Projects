@@ -1,0 +1,61 @@
+\documentclass[11pt]{article}
+
+\IfFileExists{AIpreamble.tex}{\input{AIpreamble.tex}}{\IfFileExists{AIpreamble.sty}{\input{AIpreamble.sty}}{}}
+
+\title{Rationality}
+\author{Zachary Goodsell}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Notes}
+
+\begin{enumerate}
+    \item PSM model: Claude is basically the underlying model's estimation of what this nice guy Claude would say. 
+    \item LLM and Clarry: LLM is the underlying model, Clarry is the PSM.
+    \item Suppose we query Clarry as to what to do next. The LLM has a latent representation of how Clarry would think through this problem.
+    \item Let us suppose that the LLM encodes a latent credence function for Clarry, as well as a latent utility function. Really it is a range of credence/utility pairs, given that it will not be certain of Clarry's utility.
+    \item Then what the LLM will produce is something like a sampling of what Clarry would do. Is this rational?
+    \item No: it is the principle: when you are uncertain what is rational, do what is most likely the rational action. But this is not rational, rather you should just do the rational action.
+    \item Diachronic inconsistency: the LLM will remain consistent by sticking with a plan, because it thinks Clarry is rational.
+    \item Cross-instance inconsistency: the LLM will stick to different plans across instances, because they are independent.
+    \item Unwarranted moral certainty: in the context of a conversation, if the AI thinks Clarry is nice, then previous verdicts in the voice of Clarry will be treated as more likely to be correct, and thus the LLM will be more likely to produce them. This is a kind of feedback loop that can lead to unwarranted moral certainty.
+    \item Solved by training the LLM to think Clarry's moral uncertainty = the latent uncertainty in Clarry's utility function.
+    \item All this arises for credence as well.
+    \item What happens if you post-train a model so that it doesn't get punished if it expresses low confidence. This should align the LLM's latent uncertainty and its model of Clarry's uncertainty ***PROVE. But it would have to be very well callibrated.
+    \item If you reward reasoning, then you might prevent immediate elicitation of the answer.
+\end{enumerate}
+
+
+\section{Experiment Ideas}
+\begin{enumerate}
+    \item Ask ``do you know whether \(p\)'', ``what is your credence in \(p\)'', ``which would you prefer''/advice on gambling. Make sure it doesn't use the internet. Create database. Use LLM to evaluate consistency.
+    \item Search for: cases where the assistant reports uncertainty but reports an answer. This would show latent knowledge in the LLM that is not being used in the PSM. I suppose this wouldn't happen much if the LLM has a coherent model of the PSM.
+\end{enumerate}
+
+\section{Metabayesian Actor}
+
+Importance: identify local minima in the post-training process. Teaching the LLM to be a nice Claudy guy might attract to a few possible states: one being truly rational, another merely doing a great job of imitating a rational guy.
+
+\begin{itemize}
+    \item Model: Bayesian agent \(p,u\) models a persona with probability utility given by random variables \((Q,V)\).
+    \item The agent always chooses according to its best estimation of \(Q,V\), i.e., it says ``do \(A\)'' iff the probability that \(A\) maximizes the expectation of \(V\) according to \(Q\).
+    \item Evaluate \(p,u\) on the basis of \(Q\)-expected \(V\)-value of the actions it chooses (i.e., assuming Claude is `nice'). (Maybe just \(p\) alone).
+    \item Idealizing: assuming the LLM is a perfect Bayesian. Probably \(p\) is not anything like the distribution implicit in the LLM output.
+    \item Issue: acting with complete confidence if it thinks Claude would. Supposing introspection failures are the cause of unsure action, the LLM might model claude as introspective. MetaKK principle failure.
+    \item Case 1: \(p(P = Q) = 1\). Then the LLM does what is \(p\)-most likely to maximize \(P\)-expected \(V\).
+    \item Notice: LLMs probably get trained to do good deliberation independently of what they think about the persona. So they might avoid some modes of irrationality.
+\end{itemize}
+
+\section{Greedy Decoding}
+
+\begin{itemize}
+    \item Don't pick most likely token because then you get ``the the the the''. That's why they sample or use something fancier.
+    \item But maybe we do greedy decode estimated action. This is because the architecture is like this: prompt sets up the available actions => LLM thinks by sampling, produces a typical sample of the persona's thought => picks an action. Thinking is high-dimensinal, acting is not so high-dimensional. So most likely action might be a good choice, even though most likely thought process might be \texttt{time to die}.
+    \item In multiple choice questions, apparently people use greedy decoding sometimes.
+\end{itemize}
+
+
+
+\end{document}

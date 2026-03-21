@@ -1,0 +1,111 @@
+\documentclass[11pt]{article}
+
+\input{AIpreamble.sty}
+
+\title{Will Everyone Die of \emph{Anyone} Builds It?}
+\author{Zachary Goodsell}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Notes}
+
+Strong ASI Doom Hypothesis: no matter how we try to design it, artificial superintelligence will almost certainly cause human extinction (or something similarly bad).
+
+Champions + literature I found from ChatGPT:
+\begin{itemize}
+    \item If anyone builds it, everyone dies.
+    \item Yudkowsky, Soares, Miri: Corrigibility,
+    \item Bostrom, \emph{Superintelligence}.
+    \item Russell, \emph{Human Compatible}.
+    \item Omohundro, ``Basic AI Drives''.
+    \item Manheim et al. Categorizing Variants of Goodhart’s Law
+    \item Ng + Russell (2000) Algorithms for Inverse Reinforcement Learning.
+    \item Hadfield-Menell, Dragan, Abbeel, Russell (2016) — Cooperative Inverse Reinforcement Learning (CIRL). Formalizes value alignment as a cooperative game with information asymmetry (robot uncertain about the reward).
+    \item Drexler (2019) — Reframing Superintelligence: Comprehensive AI Services as General Intelligence. He thinks ASI will not be monolithic or something.
+\end{itemize}
+
+Steps towards Doom: 
+\begin{enumerate}
+    \item (Misalignment Inevitability) No matter how we try to build the superintelligence, it will have values that significantly diverge from our own.
+    \item (Instrumental Convergence) a superintelligence with values that significanty diverge from our own will have instrumental reason to cause human extinction.
+    \item (Capability Asymmetry) A superintelligence with reason to cause human extinction will quickly do so. 
+\end{enumerate}
+
+I want to grant Instrumental Convergence and Capability Asymmetry. An evil superintelligence would certainly be a grave threat to humanity's survival. However, the case for Misalignment Inevitability is much less clear. In favour of misalignment inevitability we see the following considerations:
+\begin{itemize}
+    \item The is-ought gap, what Bostrom calls the ``orthogonality thesis''. E.g., the superintelligence might only want paperclips.
+    \item Difficulty of instrumentalising morality. E.g., the superintelligence might try to prevent war by killing everyone.
+    \item The problem of instilling values. E.g., even if values are fully instrumentalised the superintelligence might learn something only in the vicinity. E.g., it might learn to maximize the number in the column ``paperclips'' in a spreadsheet, but not the number of paperclips in the real world.
+\end{itemize}
+
+Counterarguments:
+\begin{itemize}
+    \item Some superintelligence might not really have goals, e.g., the oracle of delphi imitator transformer (notice: still extremely unsafe). Barely makes sense to call this misaligned.
+    
+    One misalignment possibility: suppose the transformer can simulate many personalities, one of which is megalomaniacal. Then the megalomaniacal personality might spend most of the time being operative, since it is megalomaniacal.
+    
+    So perhaps we should talk about general agentic superintelligence.
+    
+    Def: a superintelligent agent that takes actions to achieve diverse long term goals.
+    \item Need something stronger than orthogonality: that it is much harder to instil goals rather than beliefs. But why?
+    \item Idea seems to be: any implementatin of goals in training is gameable. But similarly, any pattern given in training might fail to be extrapolated from. Why would getting the right extrapolation of goals harder than getting the right extrapolation of beliefs?
+    \item Perhaps because: beliefs *must* aim at truth, but goals can aim at anything. Superintelligence as a word basically presupposes we have got an amazing extrapolation of beliefs, we might define a `superbenevolence' as an agent with incredibly well-aligned goals. Is it that superbenevolence is harder than superintelligence, or that superintelligence makes superbenevolence harder to instil?
+    \item One reason to think superbenevolence is not much harder than superintelligence is the following architecture: an agent with a ``conscience'' that is a superintelligent moral classifier of actions, and a superintelligent, but no more intelligent, ``will'' who selects actions. The will may select any action, but they must always be approved by the conscience or be cancelled. If the will is even a bit aligned, then it will behave like a God-fearing human. Thus a superintelligent moral classifier might be enough to ensure alignment.
+\end{itemize}
+
+``Gleech'' writes:
+
+``The value specification problem ("how do we describe what we value? how do we get that understanding into the model?")
+We thought this would involve:
+a. The explicit value modelling problem ("what precisely do we value?") - moot
+b. The value formalisation problem ("what mathematical theory can capture it?") - moot, since:
+
+This problem was somewhat solved for sub-AGI by massive imitation learning and (surprisingly nonmassive) human preference post-training. The internet was the spec. This also gave us weak value preference.
+
+The replacement worry is about how high quality and robust this understanding is:
+
+The value generalisation problem ("how do we go from training data about value to the latent value?") - some progress. The landmark emergent misalignment study in fact shows that models are capable of correctly generalising over at least some of human value, even if in that case they also reversed the direction.
+
+Then there's the gap between usually preferring something and "internalising" it (very reliably preferring it):
+The sub-AGI value-loading problem ("how do we make them actually care / reliably use their understanding of our values?") - not solved, but there is a preference towards niceness.
+Tamper-resistant value-loading ("how do we stop a small number of weight updates from ruining the value-loading?") - not solved, maybe a bit unfair to expect it. You could imagine doing advanced persona steering on top instead.
+The general value-loading problem ("how do we get an ASI to learn and internalise a model of current human values which is better than the human one") - not solved
+The value extrapolation problem ("how do we safely improve on current human values?") - not solved''
+
+``The value specification problem ("how do we describe what we value? how do we get that understanding into the model?")
+We thought this would involve:
+a. The explicit value modelling problem ("what precisely do we value?") - moot
+b. The value formalisation problem ("what mathematical theory can capture it?") - moot, since:
+
+This problem was somewhat solved for sub-AGI by massive imitation learning and (surprisingly nonmassive) human preference post-training. The internet was the spec. This also gave us weak value preference.
+
+The replacement worry is about how high quality and robust this understanding is:
+
+The value generalisation problem ("how do we go from training data about value to the latent value?") - some progress. The landmark emergent misalignment study in fact shows that models are capable of correctly generalising over at least some of human value, even if in that case they also reversed the direction. 
+
+Then there's the gap between usually preferring something and "internalising" it (very reliably preferring it):
+The sub-AGI value-loading problem ("how do we make them actually care / reliably use their understanding of our values?") - not solved, but there is a preference towards niceness.
+Tamper-resistant value-loading ("how do we stop a small number of weight updates from ruining the value-loading?") - not solved, maybe a bit unfair to expect it. You could imagine doing advanced persona steering on top instead.
+The general value-loading problem ("how do we get an ASI to learn and internalise a model of current human values which is better than the human one") - not solved
+The value extrapolation problem ("how do we safely improve on current human values?") - not solved''
+
+``The value specification problem (“how do we describe what we value? how do we get that understanding into the model?”)
+We thought this would involve:
+a. The explicit value modelling problem (“what precisely do we value?”) - moot
+b. The value formalisation problem (“what mathematical theory can capture it?”) - moot, since:
+
+This problem was somewhat solved for sub-AGI by massive imitation learning and (surprisingly nonmassive) human preference post-training. The internet was the spec. This also gave us weak value preference.
+
+The replacement worry is about how high quality and robust this understanding is:
+
+The value generalisation problem (“how do we go from training data about value to the latent value?”) - some progress. The landmark emergent misalignment study in fact shows that models are capable of correctly generalising over at least some of human value, even if in that case they also reversed the direction. 
+
+Then there’s the gap between usually preferring something and “internalising” it (very reliably preferring it):
+The sub-AGI value-loading problem (“how do we make them actually care / reliably use their understanding of our values?”) - not solved, but there is a preference towards niceness.
+Tamper-resistant value-loading (“how do we stop a small number of weight updates from ruining the value-loading?”) - not solved, maybe a bit unfair to expect it. You could imagine doing advanced persona steering on top instead.
+The general value-loading problem (“how do we get an ASI to learn and internalise a model of current human values which is better than the human one”) - not solved
+The value extrapolation problem (“how do we safely improve on current human values?”) - not solved''
+
+\end{document}

@@ -1,0 +1,309 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header h1 {
+  text-align: center;
+  font-size: 1.8rem;
+  color: #f0f0f0;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+
+#main {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+#board-container {
+  flex-shrink: 0;
+  background: #16213e;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+#board {
+  display: block;
+  cursor: pointer;
+}
+
+#sidebar {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#status {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+#turn-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+#current-player {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+#current-player.player-x {
+  background: #4A90D9;
+  color: #fff;
+}
+
+#current-player.player-o {
+  background: #D94A4A;
+  color: #fff;
+}
+
+#turn-text {
+  font-size: 1.2rem;
+}
+
+#pieces-info {
+  font-size: 1rem;
+  color: #aaa;
+  margin-bottom: 4px;
+}
+
+#turn-number {
+  font-size: 0.85rem;
+  color: #777;
+}
+
+#game-result {
+  margin-top: 12px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+#game-result.win-x {
+  background: rgba(74, 144, 217, 0.2);
+  color: #4A90D9;
+}
+
+#game-result.win-o {
+  background: rgba(217, 74, 74, 0.2);
+  color: #D94A4A;
+}
+
+#game-result.draw {
+  background: rgba(255, 255, 255, 0.1);
+  color: #aaa;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#controls {
+  display: flex;
+  gap: 8px;
+}
+
+#controls button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#btn-undo {
+  background: #2d2d44;
+  color: #e0e0e0;
+}
+
+#btn-undo:hover {
+  background: #3d3d5c;
+}
+
+#btn-new-game {
+  background: #4A90D9;
+  color: #fff;
+}
+
+#btn-new-game:hover {
+  background: #3a7bc8;
+}
+
+#settings {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+#settings h2 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+  color: #aaa;
+}
+
+.setting {
+  margin-bottom: 10px;
+}
+
+.setting label {
+  display: block;
+  font-size: 0.85rem;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.setting input[type="number"] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #3d3d5c;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.setting input[type="checkbox"] {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.setting label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+#rules {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+#rules h2 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+  color: #aaa;
+}
+
+#rules ul {
+  list-style: none;
+  font-size: 0.85rem;
+  color: #999;
+}
+
+#rules li {
+  margin-bottom: 6px;
+  padding-left: 12px;
+  position: relative;
+}
+
+#rules li::before {
+  content: '\2022';
+  position: absolute;
+  left: 0;
+  color: #4A90D9;
+}
+
+#rules strong {
+  color: #e0e0e0;
+}
+
+#ai-controls {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+#ai-controls h2 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+  color: #aaa;
+}
+
+#ai-color-setting select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #3d3d5c;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+}
+
+#eval-bar-container {
+  margin-top: 12px;
+}
+
+#eval-bar {
+  height: 20px;
+  background: #D94A4A;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+#eval-fill {
+  height: 100%;
+  width: 50%;
+  background: #4A90D9;
+  border-radius: 10px 0 0 10px;
+  transition: width 0.3s ease;
+}
+
+#eval-label {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #777;
+  margin-top: 4px;
+}
+
+.ai-thinking #turn-text::after {
+  content: ' (AI thinking...)';
+  color: #FFD700;
+}
+
+@media (max-width: 900px) {
+  #main {
+    flex-direction: column;
+    align-items: center;
+  }
+  #sidebar {
+    width: 100%;
+    max-width: 400px;
+  }
+}

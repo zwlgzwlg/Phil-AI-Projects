@@ -1,0 +1,30 @@
+\documentclass[11pt]{article}
+
+\input{AIpreamble.sty}
+
+\title{Bayesianism and Inductive Bias in Machine Learning}
+\author{Zachary Goodsell}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Notes}
+
+\begin{itemize}
+    \item A set of related Qs for Bayesianism:
+    \begin{enumerate}
+        \item The problem of the priors.
+        \item Bertrand's paradox.
+        \item Objective vs. subjective Bayesianism.
+        \item Chance vs. credence.
+    \end{enumerate}
+    \item Inductive bias in machine learning: no inductive bias = pick IID weights.
+    \item Inductively unbiased machine learner is, if a Bayesian, an extremely inductively biased learner.
+    \item Projectable property => Learnable data sequence
+    \item Consider Bayesian inference and learning over next token prediction on a corpus.
+    \item Prove no ML is Bayesian? Use logical omniscience. E.g. on completions of ``I asked the oracle [X] and the answer is \dots''. More detailed analysis. Find literature on this topic. Notice that latent algebra is hard to describe.
+    \item Transformers at the post-learning stage can be Bayesian over data revealed token-by-token. This is because the next-token probabilities don't interact with each other. Interesting question whether to think of the learner or the thinker as potentially Bayesian.
+\end{itemize}
+
+\end{document}
