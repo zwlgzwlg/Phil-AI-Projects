@@ -70,37 +70,6 @@ body {
     cursor: pointer;
 }
 
-/* Action bar */
-#action-bar {
-    display: flex;
-    background: #1a1a2e;
-    border-top: 1px solid #333;
-}
-
-#action-bar button {
-    flex: 1;
-    padding: 8px 4px;
-    background: #2a2a44;
-    color: #ccc;
-    border: none;
-    border-right: 1px solid #333;
-    font-size: 13px;
-    font-family: monospace;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-
-#action-bar button:last-child { border-right: none; }
-#action-bar button:hover:not(:disabled) { background: #3a3a66; color: #fff; }
-#action-bar button:disabled { color: #444; cursor: default; }
-
-#btn-end-turn {
-    background: #4a3a22;
-    color: #ddaa55;
-    font-weight: bold;
-}
-#btn-end-turn:hover { background: #6a5a33; color: #ffcc66; }
-
 /* Speech bar */
 #speech-bar {
     display: flex;
@@ -138,13 +107,78 @@ body {
 #btn-speak:hover:not(:disabled) { background: #3a6a4a; color: #aaffcc; }
 #btn-speak:disabled { color: #444; cursor: default; }
 
-/* Log panel */
-#log-col {
+#btn-end-turn {
+    background: #4a3a22;
+    color: #ddaa55;
+    border: none;
+    border-left: 1px solid #333;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-family: monospace;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+#btn-end-turn:hover:not(:disabled) { background: #6a5a33; color: #ffcc66; }
+#btn-end-turn:disabled { color: #444; cursor: default; }
+
+/* Side column: inventory + log */
+#side-col {
     width: 300px;
     display: flex;
     flex-direction: column;
     background: #111;
     border-left: 1px solid #333;
+}
+
+/* Inventory pane */
+#inventory-col {
+    border-bottom: 1px solid #333;
+}
+
+#inventory-header {
+    padding: 6px 10px;
+    background: #1a1a2e;
+    font-size: 12px;
+    font-family: monospace;
+    color: #88ff88;
+    font-weight: bold;
+    border-bottom: 1px solid #333;
+}
+
+#inventory-list {
+    padding: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.inventory-slot {
+    background: #1a1a2a;
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 5px 8px;
+    cursor: context-menu;
+    transition: background 0.1s;
+}
+
+.inventory-slot:hover {
+    background: #252540;
+    border-color: #555;
+}
+
+.inventory-item-name { color: #ffcc66; font-weight: bold; font-size: 12px; }
+.inventory-item-desc { color: #888; font-size: 11px; margin-top: 1px; }
+.inventory-empty { color: #444; text-align: center; padding: 12px; font-style: italic; font-size: 12px; }
+
+/* Log pane */
+#log-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 #log-header {
@@ -163,7 +197,7 @@ body {
     font-size: 12px;
     font-family: monospace;
     line-height: 1.5;
-    max-height: 530px;
+    max-height: 360px;
 }
 
 .log-line {
@@ -175,20 +209,56 @@ body {
     color: #ccddcc;
 }
 
-/* Inventory overlay */
-#inventory-overlay {
+/* Context menu */
+#context-menu {
+    position: fixed;
+    background: #1e1e30;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px 0;
+    min-width: 160px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.ctx-item {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-family: monospace;
+    color: #ccc;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.ctx-item:hover {
+    background: #3a3a66;
+    color: #fff;
+}
+
+.ctx-disabled {
+    color: #555;
+    cursor: default;
+}
+
+.ctx-disabled:hover {
+    background: transparent;
+    color: #555;
+}
+
+/* Inspect panel */
+#inspect-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.5);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 200;
+    z-index: 500;
 }
 
-#inventory-panel {
-    width: 400px;
-    max-height: 350px;
+#inspect-panel {
+    width: 420px;
+    max-height: 400px;
     background: #1e1e30;
     border: 1px solid #555;
     border-radius: 6px;
@@ -197,18 +267,22 @@ body {
     flex-direction: column;
 }
 
-#inventory-header {
+#inspect-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 8px 14px;
     background: #2a2a44;
     border-bottom: 1px solid #444;
-    font-weight: bold;
-    color: #88ff88;
 }
 
-#inventory-header button {
+#inspect-title {
+    font-weight: bold;
+    color: #ffcc66;
+    font-size: 15px;
+}
+
+#inspect-close-btn {
     background: #3a3a55;
     color: #ccc;
     border: 1px solid #555;
@@ -217,31 +291,34 @@ body {
     cursor: pointer;
     font-size: 12px;
 }
-#inventory-header button:hover { background: #4a4a66; color: #fff; }
+#inspect-close-btn:hover { background: #4a4a66; color: #fff; }
 
-#inventory-grid {
-    padding: 10px;
+#inspect-body {
+    padding: 12px 14px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.inventory-slot {
-    background: #252540;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 8px 12px;
+.inspect-row {
+    font-size: 13px;
+    line-height: 1.4;
 }
 
-.inventory-item-name { color: #ffcc66; font-weight: bold; font-size: 13px; }
-.inventory-item-desc { color: #aaa; font-size: 12px; margin-top: 2px; }
-.inventory-empty { color: #666; text-align: center; padding: 20px; font-style: italic; }
+.inspect-label {
+    color: #888;
+    font-family: monospace;
+}
+
+.inspect-value {
+    color: #ddd;
+}
 
 /* Scrollbars */
 #log-panel::-webkit-scrollbar,
-#inventory-grid::-webkit-scrollbar { width: 5px; }
+#inventory-list::-webkit-scrollbar { width: 5px; }
 #log-panel::-webkit-scrollbar-track,
-#inventory-grid::-webkit-scrollbar-track { background: transparent; }
+#inventory-list::-webkit-scrollbar-track { background: transparent; }
 #log-panel::-webkit-scrollbar-thumb,
-#inventory-grid::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+#inventory-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }

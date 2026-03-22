@@ -27,7 +27,7 @@ export const ZONES = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         ],
         playerStart: { col: 1, row: 5 },
-        npcs: ['thales'],
+        npcs: ['cicero'],
         items: [{ id: 'sword', col: 8, row: 3 }],
         doorTargets: { '15,10': { zone: 1, col: 1, row: 5 } },
     },
@@ -86,39 +86,66 @@ export const ZONES = [
 
 // NPC definitions
 export const NPC_DATA = {
-    thales: {
-        name: 'Thales',
-        symbol: 'T',
-        color: '#4488ff',
-        hp: 50,
-        col: 6,
+    cicero: {
+        name: 'Cicero',
+        symbol: 'C',
+        color: '#44bbaa',
+        col: 4,
         row: 3,
-        bio: 'Thales of Miletus. Believes all things are made of water. Friendly but long-winded.',
-        motivation: 'conversationalist',
+
+        // Bio (permanent traits)
+        hp: 45,
+        baseDamage: 5,
+        movePoints: 3,
+        actionPoints: 1,
+        hearingRange: 6,
+        bio: 'Marcus Tullius Cicero, Roman statesman and orator. A wise and eloquent advisor who believes there are two forms of conflict: one proceeds by debate, the other by force. He always prefers the former. Friendly and eager to help newcomers. Knows the layout of the Agora well. Has heard that Zeno blocks the passage to the Academy with riddles, and that Ptolemy guards the Acropolis for the Tyrants. Will offer advice freely if asked.',
+
+        // Conditions (initial temporary traits)
         attitude: 'amicable',
-        knowledge: 'Knows the layout of the Agora. Has heard rumours of Zeno blocking the Academy.',
-        passCondition: 'Have an interesting philosophical conversation about the nature of reality.',
+        initialFlags: {
+            advisor: true,
+        },
+
+        // Starting inventory
+        items: [
+            { name: 'Scroll of Rhetoric', description: 'A scroll containing Cicero\'s notes on the art of persuasion. Reading it might help in debate.' },
+        ],
+
+        // Fallback dialogue for placeholder AI
         dialogue: [
-            'Greetings, Socrates. Do you know what all things are made of?',
-            'Water! Everything is water. Can you not see?',
-            'Even this conversation is but a ripple on the cosmic sea.',
-            'I will not let you pass until you understand the wetness of truth.',
+            'Welcome, traveller. I am Cicero. There are two forms of conflict: one proceeds by debate, the other by force.',
+            'Since the former is proper to man and the latter to beasts, one should only resort to the latter if one cannot employ the former.',
+            'The Tyrants rule this city through fear. But their grip is not as strong as they believe.',
+            'Seek out the philosophers who guard the paths ahead. Some may be reasoned with. Others... less so.',
         ],
     },
     zeno: {
         name: 'Zeno',
         symbol: 'Z',
         color: '#ff8844',
-        hp: 50,
         col: 8,
         row: 5,
-        bio: 'Zeno of Elea. Obsessed with paradoxes of motion and infinity. Will not let you pass without solving a riddle.',
-        motivation: 'riddle-lover',
+
+        hp: 50,
+        baseDamage: 7,
+        movePoints: 2,  // Zeno is slow (ironic, given his paradoxes)
+        actionPoints: 1,
+        hearingRange: 6,
+        bio: 'Zeno of Elea, master of paradoxes. Obsessed with riddles about motion and infinity. He guards the bridge to the Academy and will not move until his riddle is solved. Stubborn but fair — if you solve his puzzle, he respects you. Knows that Ptolemy guards the Acropolis. Has heard the Tyrants fear a wandering philosopher. Knows a secret: the Tyrants cannot count past thirty.',
+
         attitude: 'neutral',
-        knowledge: 'Knows that Ptolemy guards the Acropolis. Has heard the Tyrants fear Socrates.',
-        passCondition: 'Solve his riddle about Achilles and the tortoise.',
+        initialFlags: {
+            blocking_path: true,
+            riddle_solved: false,
+        },
+
+        items: [
+            { name: 'Tortoise Shell', description: 'A small tortoise shell. Zeno uses it as a prop when explaining his paradoxes.' },
+        ],
+
         dialogue: [
-            'Ah, Socrates! Before you cross, answer me this.',
+            'Ah, traveller! Before you cross, answer me this.',
             'If Achilles gives a tortoise a head start, can he ever overtake it?',
             'Each time he reaches where the tortoise was, it has moved on!',
             'Motion is an illusion. You shall not pass... or shall you?',
@@ -128,14 +155,28 @@ export const NPC_DATA = {
         name: 'Ptolemy',
         symbol: 'P',
         color: '#aa44cc',
-        hp: 60,
         col: 10,
         row: 4,
-        bio: 'Ptolemy the astronomer. Loyal to the 30 Tyrants who promised him an observatory. Hostile to Socrates.',
-        motivation: 'loyalist',
+
+        hp: 60,
+        baseDamage: 10,
+        movePoints: 3,
+        actionPoints: 1,
+        hearingRange: 5,
+        bio: 'Ptolemy the astronomer. Loyal to the 30 Tyrants who promised him a grand observatory. Hostile to outsiders and suspicious of philosophers in general. Strong fighter. Will attack if provoked or if he believes you threaten the Tyrants. Knows the Tyrants\' stronghold lies beyond the Acropolis. Knows their weaknesses — they are paranoid and turn on each other — but won\'t share this easily. Knows that Critias is the most dangerous Tyrant.',
+
         attitude: 'hostile',
-        knowledge: 'Knows the Tyrants\' stronghold lies beyond the Acropolis. Knows their weaknesses but won\'t share easily.',
-        passCondition: 'Persuade him that the Tyrants will betray him, or defeat him.',
+        initialFlags: {
+            blocking_path: true,
+            loyal_to_tyrants: true,
+            suspicious: true,
+        },
+
+        items: [
+            { name: 'Star Chart', description: 'A detailed chart of the heavens. Ptolemy uses it to justify his geocentric model.' },
+            { name: 'Iron Spear', description: 'A sturdy spear. Ptolemy is not just a scholar.' },
+        ],
+
         dialogue: [
             'You dare approach the Acropolis? The Earth is the centre of all things.',
             'Look at the heavens! Clearly everything revolves around us.',

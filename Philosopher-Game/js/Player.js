@@ -8,7 +8,8 @@ export default class Player {
         this.baseDamage = 10;
         this.symbol = '@';
         this.color = '#ffffff';
-        this.name = 'Socrates';
+        this.name = 'Player'; // Set during character creation
+        this.description = 'A wandering philosopher.';
     }
 
     moveTo(col, row) {

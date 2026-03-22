@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socrates</title>
+    <title>Philosopher</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div id="game-wrapper">
         <div id="top-bar">
-            <span id="game-title">SOCRATES</span>
+            <span id="game-title">PHILOSOPHER</span>
             <div id="hud">
                 <span>HP: <strong id="hud-hp">100/100</strong></span>
                 <span>Zone: <strong id="hud-zone">Agora</strong></span>
@@ -22,33 +22,37 @@
         <div id="main-area">
             <div id="canvas-col">
                 <canvas id="game-canvas"></canvas>
-                <div id="action-bar">
-                    <button id="btn-attack" disabled>Attack</button>
-                    <button id="btn-item" disabled>Use Item</button>
-                    <button id="btn-interact" disabled>Interact</button>
-                    <button id="btn-end-turn">End Turn</button>
-                </div>
                 <div id="speech-bar">
                     <input type="text" id="speech-input" placeholder="Say something..." autocomplete="off" disabled>
                     <button id="btn-speak" disabled>Speak</button>
+                    <button id="btn-end-turn">End Turn</button>
                 </div>
             </div>
 
-            <div id="log-col">
-                <div id="log-header">Game Log</div>
-                <div id="log-panel"></div>
+            <div id="side-col">
+                <div id="inventory-col">
+                    <div id="inventory-header">Inventory</div>
+                    <div id="inventory-list"></div>
+                </div>
+                <div id="log-col">
+                    <div id="log-header">Game Log</div>
+                    <div id="log-panel"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Inventory overlay -->
-    <div id="inventory-overlay" class="hidden">
-        <div id="inventory-panel">
-            <div id="inventory-header">
-                <span>Inventory</span>
-                <button id="inventory-close-btn">Close</button>
+    <!-- Context menu -->
+    <div id="context-menu" class="hidden"></div>
+
+    <!-- Inspect panel -->
+    <div id="inspect-overlay" class="hidden">
+        <div id="inspect-panel">
+            <div id="inspect-header">
+                <span id="inspect-title">Inspect</span>
+                <button id="inspect-close-btn">Close</button>
             </div>
-            <div id="inventory-grid"></div>
+            <div id="inspect-body"></div>
         </div>
     </div>
 

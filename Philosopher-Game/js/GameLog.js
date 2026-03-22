@@ -8,7 +8,7 @@ export default class GameLog {
         this.events.push({
             turn: this.currentTurn,
             type,       // 'move', 'attack', 'kill', 'speak', 'pickup', 'use_item', 'door', 'wait'
-            actor,      // name string (e.g. 'Socrates', 'Thales')
+            actor,      // name string (e.g. player name, 'Cicero')
             target,     // name string, item name, zone name, or null
             details,    // free-form string
             position,   // {col, row} where event happened (for range checks)
@@ -42,6 +42,8 @@ export default class GameLog {
                     return `[Turn ${e.turn}] ${e.actor} entered ${e.target}.`;
                 case 'use_item':
                     return `[Turn ${e.turn}] ${e.actor} used ${e.target}. ${e.details || ''}`;
+                case 'drop':
+                    return `[Turn ${e.turn}] ${e.actor} dropped ${e.target}.`;
                 case 'wait':
                     return `[Turn ${e.turn}] ${e.actor} waited.`;
                 default:

@@ -123,11 +123,9 @@ export default class Renderer {
         this.clear();
         this.drawGrid(gameState.grid);
 
-        // Highlights based on phase
+        // Highlight reachable tiles during player turn
         if (gameState.phase === 'player_turn' && gameState.movePoints > 0) {
             this.drawReachableHighlights(gameState.reachableTiles);
-        } else if (gameState.phase === 'select_attack') {
-            this.drawAttackHighlights(gameState.attackTargets);
         }
 
         // Items
