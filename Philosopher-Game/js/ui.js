@@ -150,7 +150,6 @@ export default class UI {
 
         if (info.description) addRow('Description', info.description);
         if (info.hp !== undefined) addRow('HP', info.hp);
-        if (info.attitude) addRow('Attitude', info.attitude);
         if (info.alive !== undefined) addRow('Status', info.alive ? 'Alive' : 'Dead');
         if (info.damage !== undefined) addRow('Damage', info.damage);
         if (info.armor !== undefined) addRow('Armor', info.armor);

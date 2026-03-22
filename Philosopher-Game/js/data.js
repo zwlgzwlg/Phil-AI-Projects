@@ -102,7 +102,6 @@ export const NPC_DATA = {
         bio: 'Marcus Tullius Cicero, Roman statesman and orator. A wise and eloquent advisor who believes there are two forms of conflict: one proceeds by debate, the other by force. He always prefers the former. Friendly and eager to help newcomers. Knows the layout of the Agora well. Has heard that Zeno blocks the passage to the Academy with riddles, and that Ptolemy guards the Acropolis for the Tyrants. Will offer advice freely if asked.',
 
         // Conditions (initial temporary traits)
-        attitude: 'amicable',
         initialFlags: {
             advisor: true,
         },
@@ -134,7 +133,6 @@ export const NPC_DATA = {
         hearingRange: 6,
         bio: 'Zeno of Elea, master of paradoxes. Obsessed with riddles about motion and infinity. He guards the bridge to the Academy and will not move until his riddle is solved. Stubborn but fair — if you solve his puzzle, he respects you. Knows that Ptolemy guards the Acropolis. Has heard the Tyrants fear a wandering philosopher. Knows a secret: the Tyrants cannot count past thirty.',
 
-        attitude: 'neutral',
         initialFlags: {
             blocking_path: true,
             riddle_solved: false,
@@ -165,7 +163,6 @@ export const NPC_DATA = {
         hearingRange: 5,
         bio: 'Ptolemy the astronomer. Loyal to the 30 Tyrants who promised him a grand observatory. Hostile to outsiders and suspicious of philosophers in general. Strong fighter. Will attack if provoked or if he believes you threaten the Tyrants. Knows the Tyrants\' stronghold lies beyond the Acropolis. Knows their weaknesses — they are paranoid and turn on each other — but won\'t share this easily. Knows that Critias is the most dangerous Tyrant.',
 
-        attitude: 'hostile',
         initialFlags: {
             blocking_path: true,
             loyal_to_tyrants: true,

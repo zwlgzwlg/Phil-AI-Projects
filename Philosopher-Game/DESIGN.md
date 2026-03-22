@@ -65,7 +65,7 @@ Each NPC has:
 - `baseDamage`, `maxHp`, `maxMovePoints`, `maxActionPoints`, `hearingRange`
 
 **Conditions** (temporary/novel traits):
-- `attitude` — current stance toward player: amicable, neutral, hostile, enraged, fearful
+- `general' -- LLM written "recent" bio. E.g., has recently agreed to help the player in their endeavours. Re-writes at the end of a room.
 - `hp` — current health
 - `flags` — arbitrary boolean conditions, e.g. `{ blocking_path: true, suspicious: true, riddle_solved: false }`
 
@@ -122,7 +122,7 @@ The log serves two purposes:
 ## Character Ideas (Future)
 
 Commander-types
-- Zhuge Liang: issues clever strategems and commands to his soldiers
+- Zhuge Liang: issues clever strategems and commands to his soldiers. E.g., baits you into firing arrows at fake soldiers and collects them. Intimidates you by showing strength when he is weak. Places hidden land mines.
 - Another guy who keeps them motivated?
 - A guy who has a lot of soldiers but issues confusing commands.
 
@@ -134,6 +134,7 @@ Animal-types
 - Dunce-types but with no conversation log and no option to speak.
 
 Philosopher-types
+- Game master: challenges you to tic-tac-toe, checkers, or chess. Implemented by picking up and dropping pieces.
 - Zeno: loves riddles about infinity
 - Thales: tries to convince you all is water
 - Ramanujan: wants you to evaluate formulas for pi
@@ -154,9 +155,14 @@ Philosopher-types
 - Magical Costume: you write a fake bio.
 - Intimidating sword: appears to do much more damage than it does.
 - Potion of Sophistry: using it causes your utterances for the next 5 turns to be edited into flowery language by AI. 
+- Potion of Poetry: using it causes your utterances to be converted into rhymes with the same gist for the next 5 turns. Rhymes will fit the theme of the conversation (e.g. iambic pentameter following iambic pentameter)
 - Potion of telepathy: drinking it gives you the ability to speak privately with another person for 5 turns. Every time you send a telepathic message, they gain a possible action of responding telepathically.
 - Ring of telepathy: you can communicate telepathically with another wearer of such a ring.
 - Cursed Book: NPCs holding this book can access the internet.
+- Scrying Orb: use on a door to get a hint as to what is behind it. LLM should give a mysterious sounding description. Can only be used once per room.
+- Army in a Can: 3 loyal dunce NPCs you can spawn near you by using it. They go back in the can and heal when you use it again.
+- Phone-a-friend: use on a loyal NPC to store them inside. Release them by using again and they can help you.
+- Book of Artefacts: use to permanently gain the ability to see the details of all items worn by NPC.
 
 ## Difficulty Modes (Future)
 

@@ -1,3 +1,5 @@
+import PromptBuilder from './PromptBuilder.js';
+
 const NPC_MOVE_POINTS = 3;
 const NPC_ACTION_POINTS = 1;
 const HEARING_RANGE = 5;
@@ -29,7 +31,6 @@ export default class NPC {
 
         // --- Conditions (temporary/novel traits) ---
         this.conditions = {
-            attitude: data.attitude,   // amicable, neutral, hostile, enraged, fearful
             hp: data.hp,
             // Arbitrary condition flags that can be added/removed at runtime
             // e.g. { poisoned: true, convinced: false, suspicious: true }
@@ -50,8 +51,12 @@ export default class NPC {
         this.availableCoordinates = [];  // [{col, row, dist}] tiles reachable this turn
         this.availableActions = [];      // [{type, ...params}] actions available right now
 
-        // Placeholder dialogue index
+        // Placeholder dialogue index (used when no LLM is connected)
         this._dialogueIndex = 0;
+
+        // LLM conversation state (set when entering a zone)
+        this.systemPrompt = null;
+        this.conversationHistory = [];  // [{role: 'user'|'assistant', content: string}]
     }
 
     // --- Turn setup (called by Game at start of NPC's turn) ---
@@ -146,9 +151,67 @@ export default class NPC {
         return this.inventory.splice(index, 1)[0];
     }
 
-    // --- AI decision (placeholder) ---
-    // TODO: Replace with LLM API call
-    // Receives full turn context, returns { moveTo, action }
+    // --- LLM conversation management ---
+
+    // Called when entering a zone — sets up the system prompt for this NPC's LLM instance
+    initConversation(zoneName) {
+        this.systemPrompt = PromptBuilder.buildSystemPrompt(this, PromptBuilder.getWorldInfo(zoneName));
+        this.conversationHistory = [];
+    }
+
+    // Build the messages array to send to the LLM for this turn
+    buildLLMMessages(gameState) {
+        const turnPrompt = PromptBuilder.buildTurnPrompt(this, gameState);
+        return {
+            systemPrompt: this.systemPrompt,
+            messages: [
+                ...this.conversationHistory,
+                { role: 'user', content: turnPrompt },
+            ],
+        };
+    }
+
+    // Record the LLM's response in conversation history so it has context for next turn
+    recordTurn(turnPrompt, response) {
+        this.conversationHistory.push({ role: 'user', content: turnPrompt });
+        this.conversationHistory.push({ role: 'assistant', content: response });
+
+        // Trim old turns to keep context manageable (keep last 20 exchanges)
+        const maxMessages = 40; // 20 turns * 2 messages each
+        if (this.conversationHistory.length > maxMessages) {
+            this.conversationHistory = this.conversationHistory.slice(-maxMessages);
+        }
+    }
+
+    // Parse the LLM's JSON response into a decision
+    static parseLLMResponse(responseText) {
+        try {
+            // Strip markdown code fences if present
+            let cleaned = responseText.trim();
+            if (cleaned.startsWith('```')) {
+                cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+            }
+            const parsed = JSON.parse(cleaned);
+            return {
+                moveTo: parsed.moveTo || null,
+                action: parsed.action || null,
+            };
+        } catch (e) {
+            // If the response contains speech-like text, treat it as a speak action
+            if (responseText && responseText.length > 0 && responseText.length < 500) {
+                return {
+                    moveTo: null,
+                    action: { type: 'speak', message: responseText.trim() },
+                };
+            }
+            return { moveTo: null, action: null };
+        }
+    }
+
+    // --- AI decision ---
+    // Called by Game. If no LLM is connected, falls back to placeholder.
+    // When LLM is connected, Game will call buildLLMMessages() instead and
+    // pass the parsed result to executeLLMDecision().
 
     decideAction(turnContext) {
         // Placeholder: if player is within hearing range, speak next line
@@ -203,7 +266,6 @@ export default class NPC {
                     distance: dist,
                     hp: other.conditions.hp,
                     maxHp: other.bio.maxHp,
-                    attitude: other.conditions.attitude,
                 });
             }
         }
@@ -244,7 +306,6 @@ export default class NPC {
             bio: { ...this.bio },
             // Conditions (temporary)
             conditions: {
-                attitude: this.conditions.attitude,
                 hp: this.conditions.hp,
                 maxHp: this.bio.maxHp,
                 hpPercent: Math.round((this.conditions.hp / this.bio.maxHp) * 100),
@@ -276,7 +337,6 @@ export default class NPC {
             description: this.bio.description,
             hp: this.conditions.hp,
             maxHp: this.bio.maxHp,
-            attitude: this.conditions.attitude,
             alive: this.alive,
             inventory: this.inventory.map(i => i.name),
         };

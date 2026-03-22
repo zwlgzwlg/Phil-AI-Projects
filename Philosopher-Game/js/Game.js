@@ -64,7 +64,9 @@ export default class Game {
         for (const npcId of zoneData.npcs) {
             const data = NPC_DATA[npcId];
             if (data) {
-                this.npcs.push(new NPC(npcId, data, data.col, data.row));
+                const npc = new NPC(npcId, data, data.col, data.row);
+                npc.initConversation(zoneData.name);
+                this.npcs.push(npc);
             }
         }
 
@@ -137,7 +139,7 @@ export default class Game {
                 ? npc.canHear(position.col, position.row)
                 : npc.canSee(position.col, position.row);
             if (canPerceive) {
-                npc.addToLog({ turn: this.turn, type, actor: actorName, details });
+                npc.addMemory({ turn: this.turn, type, actor: actorName, details });
             }
         }
     }
