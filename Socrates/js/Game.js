@@ -157,7 +157,8 @@ export default class Game {
     }
 
     updateActionButtons() {
-        const hasAction = this.actionPoints > 0 && this.phase === 'player_turn';
+        const isPlayerTurn = this.phase === 'player_turn';
+        const hasAction = this.actionPoints > 0 && isPlayerTurn;
         const adjNPCs = this.getAdjacentNPCs(this.player.col, this.player.row, true);
         const itemHere = this.getItemAt(this.player.col, this.player.row);
         const onDoor = this.grid.isDoor(this.player.col, this.player.row);
@@ -169,6 +170,7 @@ export default class Game {
             interact: hasAction && !!(itemHere || onDoor),
         });
         this.ui.setSpeakEnabled(hasAction);
+        this.ui.setEndTurnEnabled(isPlayerTurn);
     }
 
     updateHud() {

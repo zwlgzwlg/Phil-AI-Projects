@@ -87,6 +87,10 @@ export default class UI {
         this.btnSpeak.disabled = !enabled;
     }
 
+    setEndTurnEnabled(enabled) {
+        this.btnEndTurn.disabled = !enabled;
+    }
+
     disableAllActions() {
         this.btnAttack.disabled = true;
         this.btnSpeak.disabled = true;
