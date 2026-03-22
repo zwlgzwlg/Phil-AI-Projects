@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hex Noughts &amp; Crosses</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1 id="site-title">Hex Noughts &amp; Crosses</h1>
+    </header>
+
+    <!-- ===== Lobby View ===== -->
+    <div id="lobby-view">
+      <div id="lobby-columns">
+        <!-- Create Game Panel -->
+        <div class="lobby-panel" id="create-panel">
+          <h2>Create a Game</h2>
+          <div class="form-group">
+            <label for="player-name">Your Name</label>
+            <input type="text" id="player-name" placeholder="Anonymous" maxlength="20">
+          </div>
+          <div class="form-group">
+            <label>Time Control</label>
+            <div id="time-buttons">
+              <button class="time-btn selected" data-time="300">5 min</button>
+              <button class="time-btn" data-time="600">10 min</button>
+              <button class="time-btn" data-time="custom">Custom</button>
+              <button class="time-btn" data-time="0">Untimed</button>
+            </div>
+            <div id="custom-time-row" class="hidden">
+              <input type="number" id="custom-minutes" min="1" max="180" value="15" placeholder="Minutes">
+              <span>minutes</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="create-board-size">Board Size</label>
+            <input type="number" id="create-board-size" min="5" max="19" value="11">
+          </div>
+          <div class="form-group">
+            <label for="create-win-length">Win Length</label>
+            <input type="number" id="create-win-length" min="3" max="10" value="6">
+          </div>
+          <button id="btn-create" class="primary-btn">Create Game</button>
+        </div>
+
+        <!-- Open Games Panel -->
+        <div class="lobby-panel" id="games-panel">
+          <h2>Open Games</h2>
+          <div id="games-list">
+            <div class="empty-state">No open games. Create one!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Waiting View ===== -->
+    <div id="waiting-view" class="hidden">
+      <div class="lobby-panel centered">
+        <h2>Waiting for opponent...</h2>
+        <p>Share this link with a friend:</p>
+        <div id="share-link-row">
+          <input type="text" id="share-link" readonly>
+          <button id="btn-copy-link">Copy</button>
+        </div>
+        <div id="game-settings-summary"></div>
+        <button id="btn-cancel-wait" class="secondary-btn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ===== Game View ===== -->
+    <div id="game-view" class="hidden">
+      <div id="main">
+        <div id="board-wrapper">
+          <!-- Opponent info bar (top) -->
+          <div class="player-bar opponent-bar" id="opponent-bar">
+            <div class="player-bar-name" id="opponent-name">Opponent</div>
+            <div class="player-bar-clock" id="opponent-clock"></div>
+          </div>
+          <div id="board-container">
+            <canvas id="board"></canvas>
+          </div>
+          <!-- Your info bar (bottom) -->
+          <div class="player-bar self-bar" id="self-bar">
+            <div class="player-bar-name" id="self-name">You</div>
+            <div class="player-bar-clock" id="self-clock"></div>
+          </div>
+        </div>
+        <aside id="sidebar">
+          <div id="status">
+            <div id="turn-indicator">
+              <span id="current-player" class="player-b">Black</span>
+              <span id="turn-text">to play</span>
+            </div>
+            <div id="pieces-info">Place <span id="pieces-left">1</span> stone<span id="pieces-plural"></span></div>
+            <div id="turn-number">Turn 1</div>
+            <div id="game-result" class="hidden"></div>
+          </div>
+          <div id="controls">
+            <button id="btn-resign" class="danger-btn">Resign</button>
+            <button id="btn-back-lobby" class="secondary-btn hidden">Back to Lobby</button>
+          </div>
+          <div id="move-list-container">
+            <h2>Moves</h2>
+            <div id="move-list"></div>
+          </div>
+          <div id="rules">
+            <h2>Rules</h2>
+            <ul>
+              <li>Black gets a free stone in the centre.</li>
+              <li>White plays first, placing <strong>2</strong> stones.</li>
+              <li>Players then alternate placing <strong>2</strong> stones each turn.</li>
+              <li>First to get <strong><span class="win-len">6</span> in a row</strong> wins.</li>
+              <li>Lines can run along any of the 3 hex axes.</li>
+              <li>The board wraps around (torus).</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <footer id="attribution">
+    Game inspired by <a href="https://www.youtube.com/watch?v=EzLzkcRZurk&t=130s" target="_blank" rel="noopener">webgoatguy</a>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
