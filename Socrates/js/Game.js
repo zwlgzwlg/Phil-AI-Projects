@@ -9,6 +9,7 @@ import { ZONES, NPC_DATA, ITEM_DATA } from './data.js';
 const TILE_SIZE = 40;
 const MAX_MOVE_POINTS = 4;
 const MAX_ACTION_POINTS = 1;
+const HEARING_RANGE = 5;
 
 export default class Game {
     constructor(canvas) {
@@ -20,18 +21,16 @@ export default class Game {
         this.turn = 1;
         this.currentZoneIndex = 0;
 
-        // Player resources for this turn
+        // Player resources
         this.movePoints = MAX_MOVE_POINTS;
         this.actionPoints = MAX_ACTION_POINTS;
 
-        // Phases: 'player_turn', 'select_attack', 'select_talk', 'dialogue', 'ai', 'gameover'
+        // Phases: 'player_turn', 'select_attack', 'ai', 'gameover'
         this.phase = 'player_turn';
 
         this.cursor = null;
-        this.reachableTiles = new Map(); // BFS results
+        this.reachableTiles = new Map();
         this.attackTargets = [];
-        this.talkTargets = [];
-        this.talkingTo = null;
 
         // Load first zone
         this.loadZone(0);
@@ -39,16 +38,14 @@ export default class Game {
         // Bind UI callbacks
         this.ui.onAction = (type) => this.handleAction(type);
         this.ui.onEndTurn = () => this.endPlayerTurn();
-        this.ui.onDialogueSend = (text) => this.handleDialogueSend(text);
-        this.ui.onDialogueClose = () => this.handleDialogueClose();
+        this.ui.onSpeak = (text) => this.handleSpeak(text);
 
         // Canvas click
         canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
 
-        this.gameLog.add('door', 'player', ZONES[0].name, `Socrates enters the ${ZONES[0].name}.`);
+        this.gameLog.add('door', 'Socrates', ZONES[0].name, `Socrates enters the ${ZONES[0].name}.`);
         this.ui.updateLog(this.gameLog.getDisplayLines());
 
-        // Initial UI
         this.refreshTurnState();
     }
 
@@ -58,11 +55,9 @@ export default class Game {
         this.grid = new Grid(zoneData);
         this.renderer.resize(zoneData.cols, zoneData.rows);
 
-        // Player
         this.player = this.player || new Player(zoneData.playerStart.col, zoneData.playerStart.row);
         this.player.moveTo(zoneData.playerStart.col, zoneData.playerStart.row);
 
-        // NPCs
         this.npcs = [];
         for (const npcId of zoneData.npcs) {
             const data = NPC_DATA[npcId];
@@ -71,7 +66,6 @@ export default class Game {
             }
         }
 
-        // Items on the ground
         this.items = [];
         for (const itemPlacement of zoneData.items) {
             const data = ITEM_DATA[itemPlacement.id];
@@ -94,7 +88,7 @@ export default class Game {
         this.phase = 'player_turn';
     }
 
-    // --- Turn resource helpers ---
+    // --- Helpers ---
 
     getOccupiedSet() {
         const set = new Set();
@@ -130,19 +124,31 @@ export default class Game {
         return null;
     }
 
-    getAdjacentNPCs(alive = true) {
+    getAdjacentNPCs(col, row, alive = true) {
         const result = [];
         const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
         for (const [dc, dr] of dirs) {
-            const nc = this.player.col + dc;
-            const nr = this.player.row + dr;
+            const nc = col + dc;
+            const nr = row + dr;
             const npc = this.getEntityAt(nc, nr);
             if (npc && (!alive || npc.alive)) result.push(npc);
         }
         return result;
     }
 
-    // Refresh everything: reachable tiles, action buttons, HUD, render
+    // Broadcast an event to all NPCs who can perceive it
+    broadcast(type, actorName, position, details) {
+        for (const npc of this.npcs) {
+            if (!npc.alive) continue;
+            const canPerceive = (type === 'speak')
+                ? npc.canHear(position.col, position.row)
+                : npc.canSee(position.col, position.row);
+            if (canPerceive) {
+                npc.addToLog({ turn: this.turn, type, actor: actorName, details });
+            }
+        }
+    }
+
     refreshTurnState() {
         this.computeReachable();
         this.updateActionButtons();
@@ -152,16 +158,17 @@ export default class Game {
 
     updateActionButtons() {
         const hasAction = this.actionPoints > 0 && this.phase === 'player_turn';
-        const adjNPCs = this.getAdjacentNPCs(true);
+        const adjNPCs = this.getAdjacentNPCs(this.player.col, this.player.row, true);
         const itemHere = this.getItemAt(this.player.col, this.player.row);
         const onDoor = this.grid.isDoor(this.player.col, this.player.row);
 
         this.ui.setActionButtons({
             attack: hasAction && adjNPCs.length > 0,
-            talk: hasAction && adjNPCs.length > 0,
+            speak: hasAction,
             item: hasAction && this.player.inventory.length > 0,
             interact: hasAction && !!(itemHere || onDoor),
         });
+        this.ui.setSpeakEnabled(hasAction);
     }
 
     updateHud() {
@@ -174,6 +181,21 @@ export default class Game {
         );
     }
 
+    // --- Player speech ---
+
+    handleSpeak(text) {
+        if (this.actionPoints <= 0 || this.phase !== 'player_turn') return;
+
+        this.actionPoints--;
+        const pos = { col: this.player.col, row: this.player.row };
+
+        this.gameLog.add('speak', 'Socrates', null, text, pos);
+        this.broadcast('speak', 'Socrates', pos, `Socrates says: "${text}"`);
+
+        this.ui.updateLog(this.gameLog.getDisplayLines());
+        this.refreshTurnState();
+    }
+
     // --- End turn ---
 
     endPlayerTurn() {
@@ -183,29 +205,86 @@ export default class Game {
         this.ui.disableAllActions();
         this.render();
 
-        // AI turns (placeholder: all NPCs idle)
+        // Each NPC takes their turn
         for (const npc of this.npcs) {
             if (!npc.alive) continue;
-            const decision = npc.decideAction(this.getGameState(), this.gameLog);
-            if (decision.move) {
-                npc.moveTo(decision.move.col, decision.move.row);
-            }
+            this.runNPCTurn(npc);
         }
 
-        // Next turn
+        // Next player turn
         this.turn++;
+        this.gameLog.setTurn(this.turn);
         this.movePoints = MAX_MOVE_POINTS;
         this.actionPoints = MAX_ACTION_POINTS;
         this.phase = 'player_turn';
         this.refreshTurnState();
-
         this.ui.updateLog(this.gameLog.getDisplayLines());
+    }
+
+    runNPCTurn(npc) {
+        let movePoints = npc.maxMovePoints;
+        let actionPoints = npc.maxActionPoints;
+
+        // Ask NPC what to do (placeholder AI)
+        const decision = npc.decideAction(this.getGameState());
+
+        // Movement
+        if (decision.moveTo && movePoints > 0) {
+            const occupied = this.getOccupiedSet();
+            occupied.delete(`${npc.col},${npc.row}`); // NPC's own tile isn't blocking itself
+            occupied.add(`${this.player.col},${this.player.row}`); // player blocks
+            const path = this.grid.getPath(npc.col, npc.row, decision.moveTo.col, decision.moveTo.row, occupied);
+            if (path && path.length <= movePoints) {
+                npc.moveTo(decision.moveTo.col, decision.moveTo.row);
+                this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
+            }
+        }
+
+        // Action
+        if (decision.action && actionPoints > 0) {
+            switch (decision.action.type) {
+                case 'speak': {
+                    const msg = decision.action.message;
+                    const pos = { col: npc.col, row: npc.row };
+                    this.gameLog.add('speak', npc.name, null, msg, pos);
+
+                    // Broadcast to other NPCs
+                    this.broadcast('speak', npc.name, pos, `${npc.name} says: "${msg}"`);
+
+                    // Player hears if in range
+                    const playerDist = Math.abs(this.player.col - npc.col) + Math.abs(this.player.row - npc.row);
+                    if (playerDist > HEARING_RANGE) {
+                        // Player doesn't hear this — but it's still in the game log for omniscient view
+                        // Could optionally hide from display log
+                    }
+                    actionPoints--;
+                    break;
+                }
+                case 'attack': {
+                    // NPC attacks an adjacent target
+                    const targetId = decision.action.targetId;
+                    if (targetId === 'player') {
+                        const dist = Math.abs(this.player.col - npc.col) + Math.abs(this.player.row - npc.row);
+                        if (dist === 1) {
+                            const dmg = this.player.takeDamage(npc.baseDamage);
+                            this.gameLog.add('attack', npc.name, 'Socrates', `${dmg} damage. Socrates HP: ${this.player.hp}/${this.player.maxHp}`, { col: npc.col, row: npc.row });
+                            this.broadcast('attack', npc.name, { col: npc.col, row: npc.row }, `${npc.name} attacked Socrates for ${dmg} damage.`);
+                            actionPoints--;
+                        }
+                    }
+                    break;
+                }
+                case 'wait':
+                default:
+                    break;
+            }
+        }
     }
 
     // --- Input handling ---
 
     handleCanvasClick(e) {
-        if (this.ui.isDialogueActive() || this.ui.isInventoryActive()) return;
+        if (this.ui.isInventoryActive()) return;
         if (this.phase === 'ai' || this.phase === 'gameover') return;
 
         const rect = this.canvas.getBoundingClientRect();
@@ -217,15 +296,12 @@ export default class Game {
             this.handlePlayerClick(col, row);
         } else if (this.phase === 'select_attack') {
             this.handleAttackClick(col, row);
-        } else if (this.phase === 'select_talk') {
-            this.handleTalkClick(col, row);
         }
 
         this.render();
     }
 
     handlePlayerClick(col, row) {
-        // Try to move to clicked tile
         const key = `${col},${row}`;
         const target = this.reachableTiles.get(key);
         if (target && this.movePoints > 0) {
@@ -233,7 +309,8 @@ export default class Game {
             if (cost <= this.movePoints) {
                 this.player.moveTo(col, row);
                 this.movePoints -= cost;
-                this.gameLog.add('move', 'player', null, `Socrates moved (${cost} steps).`);
+                this.gameLog.add('move', 'Socrates', null, `Socrates moved (${cost} steps).`, { col, row });
+                this.broadcast('move', 'Socrates', { col, row }, 'Socrates moved.');
                 this.ui.updateLog(this.gameLog.getDisplayLines());
                 this.refreshTurnState();
             }
@@ -241,27 +318,16 @@ export default class Game {
     }
 
     handleAction(type) {
-        if (this.actionPoints <= 0) return;
+        if (this.actionPoints <= 0 && type !== 'interact') return;
 
         switch (type) {
             case 'attack': {
-                const targets = this.getAdjacentNPCs(true);
+                const targets = this.getAdjacentNPCs(this.player.col, this.player.row, true);
                 if (targets.length === 1) {
                     this.doAttack(targets[0]);
                 } else if (targets.length > 1) {
                     this.phase = 'select_attack';
                     this.attackTargets = targets.map(n => ({ col: n.col, row: n.row }));
-                    this.render();
-                }
-                break;
-            }
-            case 'talk': {
-                const targets = this.getAdjacentNPCs(true);
-                if (targets.length === 1) {
-                    this.doTalk(targets[0]);
-                } else if (targets.length > 1) {
-                    this.phase = 'select_talk';
-                    this.talkTargets = targets.map(n => ({ col: n.col, row: n.row }));
                     this.render();
                 }
                 break;
@@ -282,25 +348,13 @@ export default class Game {
         if (npc && npc.alive && this.attackTargets.some(t => t.col === col && t.row === row)) {
             this.doAttack(npc);
         } else {
-            // Cancel selection
             this.phase = 'player_turn';
             this.attackTargets = [];
             this.refreshTurnState();
         }
     }
 
-    handleTalkClick(col, row) {
-        const npc = this.getEntityAt(col, row);
-        if (npc && npc.alive && this.talkTargets.some(t => t.col === col && t.row === row)) {
-            this.doTalk(npc);
-        } else {
-            this.phase = 'player_turn';
-            this.talkTargets = [];
-            this.refreshTurnState();
-        }
-    }
-
-    // --- Actions (each costs 1 action point) ---
+    // --- Actions ---
 
     doAttack(npc) {
         this.actionPoints--;
@@ -309,33 +363,21 @@ export default class Game {
 
         const dmg = this.player.getDamage();
         npc.takeDamage(dmg);
+        const pos = { col: this.player.col, row: this.player.row };
 
-        this.gameLog.add('attack', 'player', npc.name, `${dmg} damage. ${npc.name} HP: ${npc.hp}/${npc.maxHp}`);
+        this.gameLog.add('attack', 'Socrates', npc.name, `${dmg} damage. ${npc.name} HP: ${npc.hp}/${npc.maxHp}`, pos);
+        this.broadcast('attack', 'Socrates', pos, `Socrates attacked ${npc.name} for ${dmg} damage.`);
+
         if (!npc.alive) {
-            this.gameLog.add('kill', 'player', npc.name, `${npc.name} has been slain.`);
+            this.gameLog.add('kill', 'Socrates', npc.name, `${npc.name} has been slain.`, pos);
+            this.broadcast('kill', 'Socrates', pos, `Socrates killed ${npc.name}.`);
         }
 
         this.ui.updateLog(this.gameLog.getDisplayLines());
         this.refreshTurnState();
     }
 
-    doTalk(npc) {
-        this.actionPoints--;
-        this.phase = 'dialogue';
-        this.talkingTo = npc;
-        this.talkTargets = [];
-
-        this.gameLog.add('talk', 'player', npc.name, `Socrates speaks with ${npc.name}.`);
-        this.ui.updateLog(this.gameLog.getDisplayLines());
-
-        const opening = npc.getOpeningLine();
-        this.ui.openDialogue(npc.name, opening);
-        this.updateHud();
-        this.render();
-    }
-
     doInteract() {
-        // Pick up item
         const item = this.getItemAt(this.player.col, this.player.row);
         if (item) {
             this.actionPoints--;
@@ -348,48 +390,28 @@ export default class Game {
                 dialogueEffect: item.dialogueEffect,
             });
 
-            this.gameLog.add('pickup', 'player', item.name, `Socrates picked up ${item.name}.`);
+            const pos = { col: this.player.col, row: this.player.row };
+            this.gameLog.add('pickup', 'Socrates', item.name, `Socrates picked up ${item.name}.`, pos);
+            this.broadcast('pickup', 'Socrates', pos, `Socrates picked up ${item.name}.`);
             this.ui.updateLog(this.gameLog.getDisplayLines());
             this.refreshTurnState();
             return;
         }
 
-        // Use door (free action — doesn't cost action point, transitions zone)
         if (this.grid.isDoor(this.player.col, this.player.row)) {
             const target = this.grid.getDoorTarget(this.player.col, this.player.row);
             if (target) {
                 const targetZoneName = ZONES[target.zone].name;
-                this.gameLog.add('door', 'player', targetZoneName, `Socrates entered ${targetZoneName}.`);
+                this.gameLog.add('door', 'Socrates', targetZoneName, `Socrates entered ${targetZoneName}.`);
                 this.ui.updateLog(this.gameLog.getDisplayLines());
                 this.loadZone(target.zone);
                 this.player.moveTo(target.col, target.row);
-                // Reset resources for new zone
                 this.movePoints = MAX_MOVE_POINTS;
                 this.actionPoints = MAX_ACTION_POINTS;
                 this.refreshTurnState();
                 return;
             }
         }
-    }
-
-    handleDialogueSend(text) {
-        if (!this.talkingTo) return;
-
-        this.ui.addChatMessage('Socrates', text);
-
-        // Get NPC response (placeholder — cycles static lines)
-        const response = this.talkingTo.getResponse(text, this.gameLog);
-        setTimeout(() => {
-            if (this.talkingTo) {
-                this.ui.addChatMessage(this.talkingTo.name, response);
-            }
-        }, 300);
-    }
-
-    handleDialogueClose() {
-        this.talkingTo = null;
-        this.phase = 'player_turn';
-        this.refreshTurnState();
     }
 
     // --- State ---
@@ -406,7 +428,6 @@ export default class Game {
             actionPoints: this.actionPoints,
             reachableTiles: this.reachableTiles,
             attackTargets: this.attackTargets,
-            talkTargets: this.talkTargets,
             cursor: this.cursor,
             zoneName: ZONES[this.currentZoneIndex].name,
         };

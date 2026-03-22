@@ -9,21 +9,17 @@ export default class UI {
 
         // Action buttons
         this.btnAttack = document.getElementById('btn-attack');
-        this.btnTalk = document.getElementById('btn-talk');
+        this.btnSpeak = document.getElementById('btn-speak');
         this.btnItem = document.getElementById('btn-item');
         this.btnInteract = document.getElementById('btn-interact');
         this.btnEndTurn = document.getElementById('btn-end-turn');
 
+        // Speech input
+        this.speechInput = document.getElementById('speech-input');
+        this.speechSendBtn = document.getElementById('btn-speak');
+
         // Log panel
         this.logPanel = document.getElementById('log-panel');
-
-        // Dialogue panel
-        this.dialogueOverlay = document.getElementById('dialogue-overlay');
-        this.dialogueNpcName = document.getElementById('dialogue-npc-name');
-        this.chatLog = document.getElementById('chat-log');
-        this.chatInput = document.getElementById('chat-input');
-        this.chatSendBtn = document.getElementById('chat-send-btn');
-        this.dialogueCloseBtn = document.getElementById('dialogue-close-btn');
 
         // Inventory panel
         this.inventoryOverlay = document.getElementById('inventory-overlay');
@@ -31,45 +27,43 @@ export default class UI {
         this.inventoryCloseBtn = document.getElementById('inventory-close-btn');
 
         // State
-        this.dialogueActive = false;
         this.inventoryActive = false;
 
-        // Callbacks (set by Game)
+        // Callbacks
         this.onAction = null;     // (actionType) => void
         this.onEndTurn = null;    // () => void
-        this.onDialogueSend = null;
-        this.onDialogueClose = null;
+        this.onSpeak = null;      // (text) => void
 
         this._bindEvents();
     }
 
     _bindEvents() {
         this.btnAttack.addEventListener('click', () => this.onAction?.('attack'));
-        this.btnTalk.addEventListener('click', () => this.onAction?.('talk'));
         this.btnItem.addEventListener('click', () => this.onAction?.('use_item'));
         this.btnInteract.addEventListener('click', () => this.onAction?.('interact'));
         this.btnEndTurn.addEventListener('click', () => this.onEndTurn?.());
 
-        this.chatSendBtn.addEventListener('click', () => this._sendChat());
-        this.chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this._sendChat();
+        // Speak: clicking the Speak button sends whatever is in the speech input
+        this.btnSpeak.addEventListener('click', () => this._sendSpeech());
+
+        // Enter in speech input also sends
+        this.speechInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this._sendSpeech();
+            }
             e.stopPropagation();
         });
-        this.chatInput.addEventListener('keyup', (e) => e.stopPropagation());
-
-        this.dialogueCloseBtn.addEventListener('click', () => {
-            this.closeDialogue();
-            this.onDialogueClose?.();
-        });
+        this.speechInput.addEventListener('keyup', (e) => e.stopPropagation());
 
         this.inventoryCloseBtn.addEventListener('click', () => this.closeInventory());
     }
 
-    _sendChat() {
-        const text = this.chatInput.value.trim();
+    _sendSpeech() {
+        const text = this.speechInput.value.trim();
         if (!text) return;
-        this.chatInput.value = '';
-        this.onDialogueSend?.(text);
+        this.speechInput.value = '';
+        this.onSpeak?.(text);
     }
 
     // --- HUD ---
@@ -81,20 +75,25 @@ export default class UI {
         this.hudAction.textContent = `${actionPoints}/${maxAction}`;
     }
 
-    // Enable/disable action buttons
     setActionButtons(available) {
         this.btnAttack.disabled = !available.attack;
-        this.btnTalk.disabled = !available.talk;
+        this.btnSpeak.disabled = !available.speak;
         this.btnItem.disabled = !available.item;
         this.btnInteract.disabled = !available.interact;
     }
 
+    setSpeakEnabled(enabled) {
+        this.speechInput.disabled = !enabled;
+        this.btnSpeak.disabled = !enabled;
+    }
+
     disableAllActions() {
         this.btnAttack.disabled = true;
-        this.btnTalk.disabled = true;
+        this.btnSpeak.disabled = true;
         this.btnItem.disabled = true;
         this.btnInteract.disabled = true;
         this.btnEndTurn.disabled = true;
+        this.speechInput.disabled = true;
     }
 
     // --- Log ---
@@ -103,6 +102,12 @@ export default class UI {
         for (const line of lines) {
             const div = document.createElement('div');
             div.classList.add('log-line');
+
+            // Style speech lines differently (format: [Turn N] Name: "text")
+            if (/\] .+: "/.test(line)) {
+                div.classList.add('log-speech');
+            }
+
             div.textContent = line;
             this.logPanel.appendChild(div);
         }
@@ -115,42 +120,6 @@ export default class UI {
         div.textContent = line;
         this.logPanel.appendChild(div);
         this.logPanel.scrollTop = this.logPanel.scrollHeight;
-    }
-
-    // --- Dialogue ---
-    openDialogue(npcName, openingLine) {
-        this.dialogueActive = true;
-        this.dialogueNpcName.textContent = npcName;
-        this.chatLog.innerHTML = '';
-        this.dialogueOverlay.classList.remove('hidden');
-        this.addChatMessage(npcName, openingLine);
-        this.chatInput.focus();
-    }
-
-    closeDialogue() {
-        this.dialogueActive = false;
-        this.dialogueOverlay.classList.add('hidden');
-    }
-
-    addChatMessage(speaker, text) {
-        const msg = document.createElement('div');
-        msg.classList.add('chat-message', speaker === 'Socrates' ? 'chat-player' : 'chat-npc');
-
-        const nameSpan = document.createElement('span');
-        nameSpan.classList.add('chat-speaker');
-        nameSpan.textContent = speaker + ': ';
-
-        const textSpan = document.createElement('span');
-        textSpan.textContent = text;
-
-        msg.appendChild(nameSpan);
-        msg.appendChild(textSpan);
-        this.chatLog.appendChild(msg);
-        this.chatLog.scrollTop = this.chatLog.scrollHeight;
-    }
-
-    isDialogueActive() {
-        return this.dialogueActive;
     }
 
     // --- Inventory ---

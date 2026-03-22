@@ -24,31 +24,19 @@
                 <canvas id="game-canvas"></canvas>
                 <div id="action-bar">
                     <button id="btn-attack" disabled>Attack</button>
-                    <button id="btn-talk" disabled>Talk</button>
                     <button id="btn-item" disabled>Use Item</button>
                     <button id="btn-interact" disabled>Interact</button>
                     <button id="btn-end-turn">End Turn</button>
+                </div>
+                <div id="speech-bar">
+                    <input type="text" id="speech-input" placeholder="Say something..." autocomplete="off" disabled>
+                    <button id="btn-speak" disabled>Speak</button>
                 </div>
             </div>
 
             <div id="log-col">
                 <div id="log-header">Game Log</div>
                 <div id="log-panel"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Dialogue overlay -->
-    <div id="dialogue-overlay" class="hidden">
-        <div id="dialogue-panel">
-            <div id="dialogue-header">
-                <span id="dialogue-npc-name">NPC</span>
-                <button id="dialogue-close-btn">End Conversation</button>
-            </div>
-            <div id="chat-log"></div>
-            <div id="chat-input-row">
-                <input type="text" id="chat-input" placeholder="Speak..." autocomplete="off">
-                <button id="chat-send-btn">Send</button>
             </div>
         </div>
     </div>

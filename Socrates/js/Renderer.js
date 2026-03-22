@@ -102,17 +102,6 @@ export default class Renderer {
         }
     }
 
-    drawTalkHighlights(tiles) {
-        const ts = this.tileSize;
-        this.ctx.fillStyle = 'rgba(80, 150, 255, 0.25)';
-        this.ctx.strokeStyle = 'rgba(80, 150, 255, 0.6)';
-        this.ctx.lineWidth = 1;
-        for (const { col, row } of tiles) {
-            this.ctx.fillRect(col * ts, row * ts, ts, ts);
-            this.ctx.strokeRect(col * ts, row * ts, ts, ts);
-        }
-    }
-
     drawCursorHighlight(col, row) {
         const ts = this.tileSize;
         this.ctx.strokeStyle = '#ffff00';
@@ -139,8 +128,6 @@ export default class Renderer {
             this.drawReachableHighlights(gameState.reachableTiles);
         } else if (gameState.phase === 'select_attack') {
             this.drawAttackHighlights(gameState.attackTargets);
-        } else if (gameState.phase === 'select_talk') {
-            this.drawTalkHighlights(gameState.talkTargets);
         }
 
         // Items

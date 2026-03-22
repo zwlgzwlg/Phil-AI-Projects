@@ -1,3 +1,7 @@
+const NPC_MOVE_POINTS = 3;
+const NPC_ACTION_POINTS = 1;
+const HEARING_RANGE = 5;
+
 export default class NPC {
     constructor(id, data, col, row) {
         this.id = id;
@@ -11,6 +15,9 @@ export default class NPC {
         this.alive = true;
         this.baseDamage = 8;
 
+        this.maxMovePoints = NPC_MOVE_POINTS;
+        this.maxActionPoints = NPC_ACTION_POINTS;
+
         // Character data for LLM prompts
         this.bio = data.bio;
         this.motivation = data.motivation;
@@ -18,12 +25,12 @@ export default class NPC {
         this.knowledge = data.knowledge;
         this.passCondition = data.passCondition;
 
-        // Placeholder dialogue
+        // Placeholder dialogue lines (used by placeholder AI)
         this.dialogueLines = [...data.dialogue];
         this.dialogueIndex = 0;
 
-        // Conversation history for this NPC (persists across talks)
-        this.conversationHistory = [];
+        // Personal log: everything this NPC has seen and heard
+        this.personalLog = [];
     }
 
     moveTo(col, row) {
@@ -43,39 +50,50 @@ export default class NPC {
         return this.alive;
     }
 
-    // Placeholder: returns next static dialogue line
+    // Record something this NPC witnessed
+    addToLog(entry) {
+        this.personalLog.push({
+            ...entry,
+            timestamp: Date.now(),
+        });
+    }
+
+    // Check if a position is within hearing range
+    canHear(col, row) {
+        const dist = Math.abs(this.col - col) + Math.abs(this.row - row);
+        return dist <= HEARING_RANGE;
+    }
+
+    // Check if a position is within sight (same range for now)
+    canSee(col, row) {
+        const dist = Math.abs(this.col - col) + Math.abs(this.row - row);
+        return dist <= HEARING_RANGE;
+    }
+
+    // Placeholder AI: decide what to do on this NPC's turn
     // TODO: Replace with LLM API call
-    getResponse(playerMessage, gameLog) {
-        this.conversationHistory.push({ role: 'player', text: playerMessage });
+    // Returns { moveTo: {col, row} | null, action: { type, message?, targetId? } | null }
+    decideAction(gameState) {
+        // Placeholder: if player is nearby and NPC hasn't spoken recently, speak
+        const playerDist = Math.abs(this.col - gameState.player.col) + Math.abs(this.row - gameState.player.row);
 
-        if (this.dialogueIndex >= this.dialogueLines.length) {
-            this.dialogueIndex = 0;
+        if (playerDist <= HEARING_RANGE) {
+            // Say next dialogue line
+            if (this.dialogueIndex >= this.dialogueLines.length) {
+                this.dialogueIndex = 0;
+            }
+            const message = this.dialogueLines[this.dialogueIndex++];
+            return {
+                moveTo: null,
+                action: { type: 'speak', message },
+            };
         }
-        const response = this.dialogueLines[this.dialogueIndex++];
 
-        this.conversationHistory.push({ role: 'npc', text: response });
-        return response;
+        // Otherwise do nothing
+        return { moveTo: null, action: null };
     }
 
-    // Placeholder: NPC AI decision for their turn
-    // TODO: Replace with LLM API call
-    // Returns { move: {col, row} | null, action: {type, target} | null }
-    decideAction(gameState, gameLog) {
-        // Placeholder: NPCs do nothing
-        return { move: null, action: null };
-    }
-
-    // Get the opening line when player initiates conversation
-    getOpeningLine() {
-        if (this.conversationHistory.length === 0) {
-            // First time talking
-            return this.dialogueLines[0] || 'Greetings.';
-        }
-        // Returning to conversation
-        return 'You return. What do you want?';
-    }
-
-    // Build context summary for LLM prompt (used later)
+    // Build full context for LLM prompt (used later)
     getPromptContext() {
         return {
             name: this.name,
@@ -87,7 +105,7 @@ export default class NPC {
             hp: this.hp,
             maxHp: this.maxHp,
             alive: this.alive,
-            conversationHistory: this.conversationHistory,
+            personalLog: this.personalLog,
         };
     }
 }
