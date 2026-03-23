@@ -312,6 +312,7 @@ export default class Game {
         occupied.add(`${this.player.col},${this.player.row}`);
         npc.beginTurn(this.grid, occupied);
         npc.computeAvailableActions(this.getGameState());
+        npc.computeBonusActions();
         npc.computeSurroundings(this.getGameState());
 
         const turnContext = this.getGameState();
@@ -367,22 +368,35 @@ export default class Game {
             npc.addMemory({ turn: this.turn, type: 'scheme', actor: npc.name, details: `[Private thought] ${decision.scheme}` });
         }
 
-        // Handle move_and_attack: auto-move to closest melee tile then attack
-        if (decision.action?.type === 'move_and_attack') {
+        // Handle move-and-X actions: auto-move to closest melee tile then act
+        const moveAndTypes = ['move_and_attack', 'move_and_pickup'];
+        if (decision.action && moveAndTypes.includes(decision.action.type)) {
             const act = decision.action;
-            const wasOffered = npc.availableActions.some(a => a.type === 'move_and_attack' && a.targetId === act.targetId);
+            const wasOffered = npc.availableActions.some(a => {
+                if (a.type !== act.type) return false;
+                if (act.type === 'move_and_attack') return a.targetId === act.targetId;
+                if (act.type === 'move_and_pickup') return a.itemId === act.itemId;
+                return false;
+            });
             if (!wasOffered) return;
 
-            // Find the target entity
+            // Find the target position
             let targetCol, targetRow;
-            if (act.targetId === 'player') {
-                targetCol = this.player.col;
-                targetRow = this.player.row;
+            if (act.type === 'move_and_attack') {
+                if (act.targetId === 'player') {
+                    targetCol = this.player.col;
+                    targetRow = this.player.row;
+                } else {
+                    const targetNpc = this.npcs.find(n => n.id === act.targetId);
+                    if (!targetNpc || !targetNpc.alive) return;
+                    targetCol = targetNpc.col;
+                    targetRow = targetNpc.row;
+                }
             } else {
-                const targetNpc = this.npcs.find(n => n.id === act.targetId);
-                if (!targetNpc || !targetNpc.alive) return;
-                targetCol = targetNpc.col;
-                targetRow = targetNpc.row;
+                const targetItem = this.items.find(i => !i.collected && i.id === act.itemId);
+                if (!targetItem) return;
+                targetCol = targetItem.col;
+                targetRow = targetItem.row;
             }
 
             const meleePos = npc._findClosestMeleePosition(targetCol, targetRow);
@@ -394,9 +408,12 @@ export default class Game {
             this.movementTrails.push({ fromCol, fromRow, toCol: npc.col, toRow: npc.row, color: npc.color });
             this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
 
-            // Now execute the attack (rewrite action as plain attack for the switch below)
-            decision.action = { type: 'attack', targetId: act.targetId };
-            // Fall through to normal action handling
+            // Rewrite as the simple action for the switch below
+            if (act.type === 'move_and_attack') {
+                decision.action = { type: 'attack', targetId: act.targetId };
+            } else {
+                decision.action = { type: 'pickup', itemId: act.itemId };
+            }
         } else {
             // Execute normal movement
             if (decision.moveTo) {
@@ -416,14 +433,76 @@ export default class Game {
         // Re-compute available actions after movement (adjacency may have changed)
         npc.computeAvailableActions(this.getGameState());
 
-        // Execute action
+        // Execute bonus action first (free, doesn't cost action point)
+        if (decision.bonusAction) {
+            const bonus = decision.bonusAction;
+            switch (bonus.type) {
+                case 'drop': {
+                    const idx = Number(bonus.itemIndex);
+                    if (idx >= 0 && idx < npc.inventory.length) {
+                        const dropTile = this.findDropTile(npc.col, npc.row);
+                        if (dropTile) {
+                            const item = npc.removeItem(idx);
+                            this.items.push({
+                                id: item.id || item.name.toLowerCase().replace(/\s+/g, '_'),
+                                col: dropTile.col,
+                                row: dropTile.row,
+                                symbol: '*',
+                                color: '#cccccc',
+                                name: item.name,
+                                description: item.description,
+                                equipSlot: item.equipSlot || null,
+                                actionEffect: item.actionEffect || null,
+                                dialogueEffect: item.dialogueEffect || null,
+                                unlocks: item.unlocks || null,
+                                collected: false,
+                            });
+                            this.gameLog.add('drop', npc.name, item.name, `${npc.name} dropped ${item.name}.`, { col: npc.col, row: npc.row });
+                            this.broadcast('drop', npc.name, { col: npc.col, row: npc.row }, `${npc.name} dropped ${item.name}.`);
+                        }
+                    }
+                    break;
+                }
+                case 'equip': {
+                    const idx = Number(bonus.itemIndex);
+                    if (idx >= 0 && idx < npc.inventory.length) {
+                        const item = npc.inventory[idx];
+                        if (item.equipSlot) {
+                            const swapped = npc.equipItem(item, idx);
+                            if (swapped) {
+                                this.gameLog.add('equip', npc.name, item.name, `${npc.name} equipped ${item.name}, unequipping ${swapped.name}.`, { col: npc.col, row: npc.row });
+                                this.broadcast('equip', npc.name, { col: npc.col, row: npc.row }, `${npc.name} equipped ${item.name}.`);
+                            } else {
+                                this.gameLog.add('equip', npc.name, item.name, `${npc.name} equipped ${item.name}.`, { col: npc.col, row: npc.row });
+                                this.broadcast('equip', npc.name, { col: npc.col, row: npc.row }, `${npc.name} equipped ${item.name}.`);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case 'unequip': {
+                    const slot = bonus.slot;
+                    if (slot && npc.equipment[slot]) {
+                        const item = npc.unequipItem(slot);
+                        if (item) {
+                            this.gameLog.add('unequip', npc.name, item.name, `${npc.name} unequipped ${item.name}.`, { col: npc.col, row: npc.row });
+                            this.broadcast('unequip', npc.name, { col: npc.col, row: npc.row }, `${npc.name} unequipped ${item.name}.`);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Execute main action
         if (decision.action) {
             const act = decision.action;
             // Validate that this specific action (type + target/item) was offered
             const actionAllowed = npc.availableActions.some(a => {
                 if (a.type !== act.type) return false;
                 if (a.type === 'attack') return a.targetId === act.targetId;
-                if (a.type === 'use_item' || a.type === 'drop') return a.itemIndex === Number(act.itemIndex);
+                if (a.type === 'pickup') return a.itemId === act.itemId;
+                if (a.type === 'use_item') return a.itemIndex === Number(act.itemIndex);
                 if (a.type === 'special_action') return a.name === act.name;
                 return true;
             });
@@ -464,38 +543,33 @@ export default class Game {
                     }
                     break;
                 }
+                case 'pickup': {
+                    const targetItem = this.items.find(i => !i.collected && i.id === act.itemId);
+                    if (targetItem) {
+                        const dist = Math.abs(npc.col - targetItem.col) + Math.abs(npc.row - targetItem.row);
+                        if (dist <= MELEE_RANGE) {
+                            targetItem.collected = true;
+                            npc.addItem({
+                                id: targetItem.id,
+                                name: targetItem.name,
+                                description: targetItem.description,
+                                equipSlot: targetItem.equipSlot || null,
+                                actionEffect: targetItem.actionEffect || null,
+                                dialogueEffect: targetItem.dialogueEffect || null,
+                                unlocks: targetItem.unlocks || null,
+                            });
+                            this.gameLog.add('pickup', npc.name, targetItem.name, `${npc.name} picked up ${targetItem.name}.`, { col: npc.col, row: npc.row });
+                            this.broadcast('pickup', npc.name, { col: npc.col, row: npc.row }, `${npc.name} picked up ${targetItem.name}.`);
+                        }
+                    }
+                    break;
+                }
                 case 'use_item': {
                     const idx = Number(act.itemIndex);
                     if (idx >= 0 && idx < npc.inventory.length) {
                         const item = npc.inventory[idx];
                         this.gameLog.add('use_item', npc.name, item.name, `${npc.name} used ${item.name}.`, { col: npc.col, row: npc.row });
                         this.broadcast('use_item', npc.name, { col: npc.col, row: npc.row }, `${npc.name} used ${item.name}.`);
-                    }
-                    break;
-                }
-                case 'drop': {
-                    const idx = Number(act.itemIndex);
-                    if (idx >= 0 && idx < npc.inventory.length) {
-                        const dropTile = this.findDropTile(npc.col, npc.row);
-                        if (dropTile) {
-                            const item = npc.removeItem(idx);
-                            this.items.push({
-                                id: item.id || item.name.toLowerCase().replace(/\s+/g, '_'),
-                                col: dropTile.col,
-                                row: dropTile.row,
-                                symbol: '*',
-                                color: '#cccccc',
-                                name: item.name,
-                                description: item.description,
-                                equipSlot: item.equipSlot || null,
-                                actionEffect: item.actionEffect || null,
-                                dialogueEffect: item.dialogueEffect || null,
-                                unlocks: item.unlocks || null,
-                                collected: false,
-                            });
-                            this.gameLog.add('drop', npc.name, item.name, `${npc.name} dropped ${item.name}.`, { col: npc.col, row: npc.row });
-                            this.broadcast('drop', npc.name, { col: npc.col, row: npc.row }, `${npc.name} dropped ${item.name}.`);
-                        }
                     }
                     break;
                 }

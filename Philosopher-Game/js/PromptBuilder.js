@@ -22,7 +22,7 @@ ${worldInfo}
 - You do not know things your character wouldn't know. Only act on information from your memory log.
 - When you speak, keep it concise (1-2 sentences). You are in a game, not writing an essay.
 - You may lie, deceive, bargain, threaten, or cooperate — whatever fits your character.
-- You choose one movement, one action, and write a private scheme per turn. You must respond with valid JSON.
+- You choose one movement, one action, optionally one bonus action (drop/equip/unequip — free), and write a private scheme per turn. You must respond with valid JSON.
 - The "scheme" field is your private internal monologue — use it to plan ahead, reason about the situation, and leave notes for your future self. No one else can see it. It is added to your memory for future turns.
 
 ## YOUR CHARACTER
@@ -98,6 +98,17 @@ ${worldInfo}
             lines.push(`- ${a}`);
         }
 
+        // Bonus actions (free, don't cost action point)
+        if (ctx.bonusActions.length > 0) {
+            lines.push('');
+            lines.push('## BONUS ACTIONS');
+            lines.push('You may also optionally perform ONE bonus action:');
+            const bonusList = this._formatBonusActions(ctx.bonusActions);
+            for (const b of bonusList) {
+                lines.push(`- ${b}`);
+            }
+        }
+
         // Available movement
         lines.push('');
         lines.push('## AVAILABLE MOVEMENT');
@@ -123,7 +134,13 @@ ${worldInfo}
         lines.push('    "type": "<action_type>",');
         lines.push('    "message": "<your speech>" (only for speak),');
         lines.push('    "targetId": "<id>" (only for attack/move_and_attack),');
-        lines.push('    "itemIndex": <number> (only for use_item/drop)');
+        lines.push('    "itemId": "<id>" (only for pickup/move_and_pickup),');
+        lines.push('    "itemIndex": <number> (only for use_item)');
+        lines.push('  } or null,');
+        lines.push('  "bonusAction": {');
+        lines.push('    "type": "drop|equip|unequip",');
+        lines.push('    "itemIndex": <number> (for drop/equip),');
+        lines.push('    "slot": "<slot>" (for unequip)');
         lines.push('  } or null,');
         lines.push('  "scheme": "<your private thoughts and plans — only you can see this>"');
         lines.push('}');
@@ -145,17 +162,38 @@ ${worldInfo}
                 case 'move_and_attack':
                     lines.push(`\`{"type": "move_and_attack", "targetId": "${a.targetId}"}\` — Move into range and attack ${a.targetName}. (Requires movement + action.)`);
                     break;
+                case 'pickup':
+                    lines.push(`\`{"type": "pickup", "itemId": "${a.itemId}"}\` — Pick up ${a.itemName}.`);
+                    break;
+                case 'move_and_pickup':
+                    lines.push(`\`{"type": "move_and_pickup", "itemId": "${a.itemId}"}\` — Move into range and pick up ${a.itemName}. (Requires movement + action.)`);
+                    break;
                 case 'use_item':
                     lines.push(`\`{"type": "use_item", "itemIndex": ${a.itemIndex}}\` — Use ${a.itemName}.`);
-                    break;
-                case 'drop':
-                    lines.push(`\`{"type": "drop", "itemIndex": ${a.itemIndex}}\` — Drop ${a.itemName} on the ground nearby.`);
                     break;
                 case 'special_action':
                     lines.push(`\`{"type": "special_action", "name": "${a.name}"}\` — ${a.description}`);
                     break;
                 case 'wait':
                     lines.push('`{"type": "wait"}` — Do nothing this turn.');
+                    break;
+            }
+        }
+        return lines;
+    }
+
+    static _formatBonusActions(bonusActions) {
+        const lines = [];
+        for (const a of bonusActions) {
+            switch (a.type) {
+                case 'drop':
+                    lines.push(`\`{"type": "drop", "itemIndex": ${a.itemIndex}}\` — Drop ${a.itemName} on the ground.`);
+                    break;
+                case 'equip':
+                    lines.push(`\`{"type": "equip", "itemIndex": ${a.itemIndex}}\` — Equip ${a.itemName} (${a.slot} slot).`);
+                    break;
+                case 'unequip':
+                    lines.push(`\`{"type": "unequip", "slot": "${a.slot}"}\` — Unequip ${a.itemName}.`);
                     break;
             }
         }
@@ -175,7 +213,8 @@ ${worldInfo}
     static getWorldInfo(zoneName) {
         return `"Philosopher" is a turn-based grid RPG set in ancient Athens. The city is ruled by the 30 Tyrants.
 Each turn, every character (player and NPCs) gets movement points and 1 action point.
-Actions: speak (say something aloud), attack (melee range 2 squares), move_and_attack (move into range then attack), use_item, drop (put an item on the ground), or wait.
+Actions: speak (say something aloud), attack (melee range 2 squares), move_and_attack (move into range then attack), pickup (pick up a nearby item), move_and_pickup, use_item, or wait.
+Bonus actions (free, in addition to your main action): drop, equip, unequip.
 Speech is heard by everyone within hearing range. Melee attacks reach 2 squares by default (Manhattan distance).
 The player is a wandering philosopher trying to navigate the city. NPCs are independent characters with their own goals.
 You are currently in the ${zoneName}.`;

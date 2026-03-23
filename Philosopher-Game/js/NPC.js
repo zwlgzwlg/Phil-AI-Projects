@@ -114,10 +114,20 @@ export default class NPC {
             }
         }
 
-        // Use or drop item (if has any)
+        // Pick up items within melee range, or move_and_pickup if reachable
+        for (const item of gameState.items) {
+            if (item.collected) continue;
+            const dist = Math.abs(this.col - item.col) + Math.abs(this.row - item.row);
+            if (dist <= MELEE_RANGE) {
+                this.availableActions.push({ type: 'pickup', itemId: item.id, itemName: item.visibleName || item.name });
+            } else if (this.movePoints > 0 && this._canReachMelee(item.col, item.row)) {
+                this.availableActions.push({ type: 'move_and_pickup', itemId: item.id, itemName: item.visibleName || item.name });
+            }
+        }
+
+        // Use item (if has any)
         for (let i = 0; i < this.inventory.length; i++) {
             this.availableActions.push({ type: 'use_item', itemIndex: i, itemName: this.inventory[i].name });
-            this.availableActions.push({ type: 'drop', itemIndex: i, itemName: this.inventory[i].name });
         }
 
         // Special actions unique to this NPC
@@ -127,6 +137,27 @@ export default class NPC {
 
         // Wait (always)
         this.availableActions.push({ type: 'wait' });
+    }
+
+    // Compute bonus actions (free actions that don't cost an action point)
+    computeBonusActions() {
+        this.bonusActions = [];
+
+        // Drop inventory items
+        for (let i = 0; i < this.inventory.length; i++) {
+            this.bonusActions.push({ type: 'drop', itemIndex: i, itemName: this.inventory[i].name });
+            // Equip if item has an equip slot
+            if (this.inventory[i].equipSlot) {
+                this.bonusActions.push({ type: 'equip', itemIndex: i, itemName: this.inventory[i].name, slot: this.inventory[i].equipSlot });
+            }
+        }
+
+        // Unequip equipped items
+        for (const [slot, item] of Object.entries(this.equipment)) {
+            if (item) {
+                this.bonusActions.push({ type: 'unequip', slot, itemName: item.name });
+            }
+        }
     }
 
     // Check if any of the NPC's reachable tiles are within melee range of (targetCol, targetRow)
@@ -213,6 +244,23 @@ export default class NPC {
         return this.inventory.splice(index, 1)[0];
     }
 
+    equipItem(item, inventoryIndex) {
+        const slot = item.equipSlot;
+        if (!slot || !(slot in this.equipment)) return null;
+        const swapped = this.equipment[slot];
+        this.equipment[slot] = item;
+        this.inventory.splice(inventoryIndex, 1);
+        return swapped;
+    }
+
+    unequipItem(slot) {
+        const item = this.equipment[slot];
+        if (!item) return null;
+        this.equipment[slot] = null;
+        this.inventory.push(item);
+        return item;
+    }
+
     // --- LLM conversation management ---
 
     // Called when entering a zone — sets up the system prompt for this NPC's LLM instance
@@ -262,6 +310,7 @@ export default class NPC {
             return {
                 moveTo: parsed.moveTo || null,
                 action: parsed.action || null,
+                bonusAction: parsed.bonusAction || null,
                 scheme: parsed.scheme || null,
             };
         } catch (e) {
@@ -400,6 +449,8 @@ export default class NPC {
             playerThreatLevel: this.playerThreatLevel || 'unknown',
             // Available actions this turn
             availableActions: [...this.availableActions],
+            // Bonus actions (free, don't cost action point)
+            bonusActions: [...(this.bonusActions || [])],
             // Available movement coordinates this turn
             availableCoordinates: this.availableCoordinates.map(c => ({ col: c.col, row: c.row, dist: c.dist })),
         };
