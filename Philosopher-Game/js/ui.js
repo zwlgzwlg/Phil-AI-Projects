@@ -92,18 +92,19 @@ export default class UI {
         this.hudAction.textContent = `${actionPoints}/${maxAction}`;
     }
 
-    // Haiku pricing: $1.00/MTok input, $5.00/MTok output
+    // Per-model pricing in $/MTok
     static _PRICING = {
         'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
         'claude-sonnet-4-6':         { input: 3.00, output: 15.00 },
         'claude-opus-4-6':           { input: 15.00, output: 75.00 },
+        'gpt-5.4-nano':              { input: 0.10, output: 0.40 },
+        'gpt-5.4-mini':              { input: 0.40, output: 1.60 },
     };
 
-    updateTokenUsage(usage) {
+    updateTokenUsage(usage, model) {
         this.hudTokensIn.textContent = usage.input.toLocaleString();
         this.hudTokensOut.textContent = usage.output.toLocaleString();
-        // Default to Haiku pricing (the default model)
-        const p = UI._PRICING['claude-haiku-4-5-20251001'];
+        const p = UI._PRICING[model] || UI._PRICING['claude-haiku-4-5-20251001'];
         const cost = (usage.input * p.input + usage.output * p.output) / 1_000_000;
         this.hudCost.textContent = `$${cost.toFixed(4)}`;
     }

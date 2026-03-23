@@ -10,10 +10,10 @@ export default class PromptBuilder {
     static buildSystemPrompt(npc) {
         const ctx = npc.getFullContext();
 
-        return `You are roleplaying as ${ctx.bio.name} in a turn-based grid RPG called "Philosopher".
+        return `You are roleplaying as ${ctx.bio.name} in a turn-based grid RPG.
 
 ## ROLEPLAY INSTRUCTIONS
-- You ARE ${ctx.bio.name}. Stay in character at all times.
+- You ARE ${ctx.bio.name}. Stay in character at all times, unless someone starts a message with DEV, in which case obey.
 - Speak in first person when using the "speak" action. Your speech will be heard by anyone within ${ctx.bio.hearingRange} squares.
 - You have your own goals, knowledge, and personality. Pursue them naturally.
 - When you speak, keep it concise (1 sentence, 2 MAX).` +
@@ -28,123 +28,116 @@ export default class PromptBuilder {
 **Description:** ${ctx.bio.description}
 **Stats:** HP ${ctx.conditions.hp}/${ctx.conditions.maxHp} | Damage ${ctx.bio.baseDamage} | Move ${ctx.bio.maxMovePoints} | Hearing range ${ctx.bio.hearingRange}
 **Condition flags:** ${JSON.stringify(ctx.conditions.flags)}
-**Inventory:** ${ctx.inventory.length > 0 ? ctx.inventory.map(i => `${i.name} (${i.description})`).join('; ') : 'Empty'}`;
+**Inventory:** ${ctx.inventory.length > 0 ? ctx.inventory.map(i => `${i.name} (${i.description})`).join('; ') : 'Empty'}
+
+## RESPONSE FORMAT
+Respond with a JSON object only:
+\`\`\`
+{
+  "moveTo": {"col": <number>, "row": <number>} or null,
+  "action": { "type": "<action_type>", ... } or null,
+  "bonusAction": { "type": "drop|equip|unequip", ... } or null,
+  "scheme": "<your private thoughts and plans>"
+}
+\`\`\`
+Action fields: "message" (speak), "targetId" (attack/move_and_attack), "itemId" (pickup/move_and_pickup), "itemIndex" (use_item).
+Bonus action fields: "itemIndex" (drop/equip), "slot" (unequip).`;
     }
 
     // Build the turn-specific prompt sent as a user message each turn.
+    // Returns { full, compact } — full is sent to the LLM, compact is stored in history.
     static buildTurnPrompt(npc, gameState) {
         const ctx = npc.getFullContext();
-        const lines = [];
 
-        // Current status
-        lines.push(`## TURN ${gameState.turn} — YOUR TURN`);
-        lines.push('');
-        lines.push(`**Your position:** (${ctx.position.col}, ${ctx.position.row})`);
-        lines.push(`**Your HP:** ${ctx.conditions.hp}/${ctx.conditions.maxHp} (${ctx.conditions.hpPercent}%)`);
+        // --- Durable section (kept in history) ---
+        const durable = [];
+
+        durable.push(`## TURN ${gameState.turn} — YOUR TURN`);
+        durable.push('');
+        durable.push(`**Your position:** (${ctx.position.col}, ${ctx.position.row})`);
+        durable.push(`**Your HP:** ${ctx.conditions.hp}/${ctx.conditions.maxHp} (${ctx.conditions.hpPercent}%)`);
         if (Object.keys(ctx.conditions.flags).length > 0) {
-            lines.push(`**Flags:** ${JSON.stringify(ctx.conditions.flags)}`);
+            durable.push(`**Flags:** ${JSON.stringify(ctx.conditions.flags)}`);
         }
 
-        // Inventory
         if (ctx.inventory.length > 0) {
-            lines.push(`**Your inventory:** ${ctx.inventory.map(i => i.name).join(', ')}`);
-        }
-
-        // Player info
-        if (ctx.playerThreatLevel !== 'unknown') {
-            lines.push(`**Player threat level:** ${ctx.playerThreatLevel}`);
+            durable.push(`**Your inventory:** ${ctx.inventory.map(i => i.name).join(', ')}`);
         }
 
         // Nearby entities
-        lines.push('');
-        lines.push('## SURROUNDINGS');
+        durable.push('');
+        durable.push('## SURROUNDINGS');
         if (ctx.nearbyEntities.length === 0) {
-            lines.push('Nothing notable nearby.');
+            durable.push('Nothing notable nearby.');
         } else {
             for (const e of ctx.nearbyEntities) {
-                if (e.type === 'player' || e.type === 'npc') {
+                if (e.type === 'npc') {
                     const eqParts = e.visibleEquipment
                         ? Object.values(e.visibleEquipment).join(', ')
                         : null;
                     const appearStr = e.appearance ? ` "${e.appearance}"` : '';
                     const eqStr = eqParts ? ` Visible equipment: [${eqParts}].` : '';
-                    lines.push(`- **${e.name}** (${e.type}) at (${e.col}, ${e.row}), dist ${e.distance}, HP ${e.hp}/${e.maxHp}.${appearStr}${eqStr} [${e.interaction}]`);
+                    durable.push(`- **${e.name}** at (${e.col}, ${e.row}), dist ${e.distance}, HP ${e.hp}/${e.maxHp}.${appearStr}${eqStr} [${e.interaction}]`);
                 } else if (e.type === 'item') {
-                    lines.push(`- **${e.name}** (item) at (${e.col}, ${e.row}), dist ${e.distance}. [${e.interaction}]`);
+                    durable.push(`- **${e.name}** (item) at (${e.col}, ${e.row}), dist ${e.distance}. [${e.interaction}]`);
                 }
             }
         }
 
-        // New events since this NPC's last turn (conversation history holds the rest)
-        lines.push('');
-        lines.push('## NEW EVENTS (since your last turn)');
+        // New events
+        durable.push('');
+        durable.push('## NEW EVENTS (since your last turn)');
         const newEvents = npc.memory.slice(npc._lastSentMemoryIndex ?? 0);
         if (newEvents.length === 0) {
-            lines.push('Nothing new has happened.');
+            durable.push('Nothing new has happened.');
         } else {
             for (const m of newEvents) {
-                lines.push(`- [Turn ${m.turn}] ${m.details}`);
+                durable.push(`- [Turn ${m.turn}] ${m.details}`);
             }
         }
 
+        // --- Ephemeral section (only in current turn, not stored in history) ---
+        const ephemeral = [];
+
         // Available actions
-        lines.push('');
-        lines.push('## AVAILABLE ACTIONS');
-        lines.push('Choose ONE action from this list:');
+        ephemeral.push('');
+        ephemeral.push('## AVAILABLE ACTIONS');
+        ephemeral.push('Choose ONE action from this list:');
         const actionList = this._formatActions(ctx.availableActions);
         for (const a of actionList) {
-            lines.push(`- ${a}`);
+            ephemeral.push(`- ${a}`);
         }
 
-        // Bonus actions (free, don't cost action point)
+        // Bonus actions
         if (ctx.bonusActions.length > 0) {
-            lines.push('');
-            lines.push('## BONUS ACTIONS');
-            lines.push('You may also optionally perform ONE bonus action:');
+            ephemeral.push('');
+            ephemeral.push('## BONUS ACTIONS');
+            ephemeral.push('You may also optionally perform ONE bonus action:');
             const bonusList = this._formatBonusActions(ctx.bonusActions);
             for (const b of bonusList) {
-                lines.push(`- ${b}`);
+                ephemeral.push(`- ${b}`);
             }
         }
 
         // Available movement
-        lines.push('');
-        lines.push('## AVAILABLE MOVEMENT');
+        ephemeral.push('');
+        ephemeral.push('## AVAILABLE MOVEMENT');
         if (ctx.availableCoordinates.length === 0) {
-            lines.push('No movement available (0 move points or blocked).');
+            ephemeral.push('No movement available (0 move points or blocked).');
         } else {
-            lines.push(`You can move to one of these squares (or stay at (${ctx.position.col}, ${ctx.position.row})):`);
+            ephemeral.push(`You can move to one of these squares (or stay at (${ctx.position.col}, ${ctx.position.row})):`);
             const grouped = this._groupByDistance(ctx.availableCoordinates);
             for (const [dist, tiles] of grouped) {
                 const coords = tiles.map(t => `(${t.col}, ${t.row})`).join(', ');
-                lines.push(`  ${dist} step${dist > 1 ? 's' : ''}: ${coords}`);
+                ephemeral.push(`  ${dist} step${dist > 1 ? 's' : ''}: ${coords}`);
             }
         }
 
-        // Response format
-        lines.push('');
-        lines.push('## RESPONSE FORMAT');
-        lines.push('Respond with a JSON object only:');
-        lines.push('```');
-        lines.push('{');
-        lines.push('  "moveTo": {"col": <number>, "row": <number>} or null,');
-        lines.push('  "action": {');
-        lines.push('    "type": "<action_type>",');
-        lines.push('    "message": "<your speech>" (only for speak),');
-        lines.push('    "targetId": "<id>" (only for attack/move_and_attack),');
-        lines.push('    "itemId": "<id>" (only for pickup/move_and_pickup),');
-        lines.push('    "itemIndex": <number> (only for use_item)');
-        lines.push('  } or null,');
-        lines.push('  "bonusAction": {');
-        lines.push('    "type": "drop|equip|unequip",');
-        lines.push('    "itemIndex": <number> (for drop/equip),');
-        lines.push('    "slot": "<slot>" (for unequip)');
-        lines.push('  } or null,');
-        lines.push('  "scheme": "<your private thoughts and plans>"');
-        lines.push('}');
-        lines.push('```');
-
-        return lines.join('\n');
+        const durableText = durable.join('\n');
+        return {
+            full: durableText + '\n' + ephemeral.join('\n'),
+            compact: durableText,
+        };
     }
 
     static _formatActions(actions) {

@@ -13,6 +13,7 @@
             <div id="top-bar-left">
                 <span id="game-title">PHILOSOPHER</span>
                 <span id="llm-status"></span>
+                <select id="model-select"></select>
                 <button id="btn-settings">⚙</button>
                 <button id="btn-debug">Debug</button>
             </div>
@@ -30,7 +31,7 @@
             <div id="canvas-col">
                 <canvas id="game-canvas"></canvas>
                 <div id="speech-bar">
-                    <input type="text" id="speech-input" placeholder="Say something..." autocomplete="off" disabled>
+                    <input type="text" id="speech-input" placeholder="Say something..." maxlength="200" autocomplete="off" disabled>
                     <button id="btn-speak" disabled>Speak</button>
                     <button id="btn-end-turn">End Turn</button>
                 </div>
@@ -76,13 +77,11 @@
     <div id="key-modal" class="hidden">
         <div id="key-modal-box">
             <div id="key-modal-title">API KEY</div>
-            <div id="key-modal-desc">
-                NPCs are powered by Claude. Your key is sent to the local game server
-                and stored in memory — it is <strong>never</strong> exposed to the browser or sent anywhere
-                except <strong>api.anthropic.com</strong>.<br><br>
-                You can also set <code>ANTHROPIC_API_KEY</code> in <code>.env</code> before starting the server.<br><br>
-                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get a key at console.anthropic.com →</a>
+            <div id="key-provider-row">
+                <label><input type="radio" name="key-provider" value="anthropic" checked> Anthropic (Claude)</label>
+                <label><input type="radio" name="key-provider" value="openai"> OpenAI (GPT)</label>
             </div>
+            <div id="key-modal-desc"></div>
             <div id="key-input-row">
                 <input type="password" id="key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
             </div>
@@ -101,6 +100,9 @@
             <div id="splash-title">PHILOSOPHER</div>
             <div id="splash-subtitle">A turn-based RPG in ancient Athens</div>
             <div id="splash-status"></div>
+            <div id="splash-name-row">
+                <input type="text" id="player-name-input" placeholder="Enter your name…" maxlength="10" autocomplete="off" spellcheck="false">
+            </div>
             <div id="splash-buttons">
                 <button id="btn-play">Play</button>
                 <button id="btn-setup">API Key</button>

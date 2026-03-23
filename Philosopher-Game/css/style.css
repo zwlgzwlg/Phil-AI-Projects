@@ -629,6 +629,25 @@ body {
 #splash-status.status-ok    { color: #66bb88; background: #0d1f14; border: 1px solid #1a4428; }
 #splash-status.status-error { color: #cc7755; background: #1f0d08; border: 1px solid #442218; }
 
+#splash-name-row {
+    margin: 8px 0 4px;
+}
+
+#player-name-input {
+    background: #1a1a2e;
+    color: #ddccaa;
+    border: 1px solid #444;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: monospace;
+    border-radius: 4px;
+    text-align: center;
+    width: 180px;
+    outline: none;
+}
+#player-name-input:focus { border-color: #665533; }
+#player-name-input::placeholder { color: #555; }
+
 #splash-buttons {
     display: flex;
     gap: 12px;
@@ -709,6 +728,21 @@ body {
     margin-bottom: 0 !important;
 }
 
+/* Model selector */
+#model-select {
+    background: #1a1a2e;
+    color: #aaa;
+    border: 1px solid #444;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+    cursor: pointer;
+    outline: none;
+}
+#model-select:hover { border-color: #666; color: #ccc; }
+#model-select:focus { border-color: #554433; }
+
 /* Settings button */
 #btn-settings {
     background: #2a2a44;
@@ -749,6 +783,23 @@ body {
     color: #aa9966;
     font-size: 18px;
     letter-spacing: 2px;
+}
+
+#key-provider-row {
+    display: flex;
+    gap: 16px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #aaa;
+}
+#key-provider-row label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+#key-provider-row input[type="radio"] {
+    accent-color: #aa9966;
 }
 
 #key-modal-desc {

@@ -1,4 +1,4 @@
-// Browser → local server → Anthropic API.
+// Browser → local server → Anthropic/OpenAI API.
 // The API key never enters the browser. All requests are proxied through the game server.
 // A session token (fetched once on load) authenticates requests to the local server.
 
@@ -6,6 +6,8 @@ const ALLOWED_MODELS = new Set([
     'claude-haiku-4-5-20251001',
     'claude-sonnet-4-6',
     'claude-opus-4-6',
+    'gpt-5.4-mini',
+    'gpt-5.4-nano',
 ]);
 
 let sessionToken = null;
@@ -20,6 +22,9 @@ async function ensureToken() {
 }
 
 export default class LLMClient {
+    // Currently selected model — set by the model selector UI or status check.
+    static currentModel = 'claude-haiku-4-5-20251001';
+
     // Fetch wrapper that injects the session token header.
     static async _fetch(url, options = {}) {
         const token = await ensureToken();
@@ -30,7 +35,7 @@ export default class LLMClient {
         return fetch(url, options);
     }
 
-    // Check whether the server has an API key configured.
+    // Check whether the server has API key(s) configured.
     static async getStatus() {
         try {
             const res = await LLMClient._fetch('/api/status');
@@ -51,13 +56,13 @@ export default class LLMClient {
     }
 
     // Send a key to the server for validation and storage.
-    // Returns { ok, message?, model? }
-    static async setKey(rawKey) {
+    // Returns { ok, message?, model?, provider? }
+    static async setKey(rawKey, provider = 'anthropic') {
         try {
             const res = await LLMClient._fetch('/api/key', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ key: rawKey }),
+                body: JSON.stringify({ key: rawKey, provider }),
             });
             return await res.json();
         } catch {
@@ -65,20 +70,22 @@ export default class LLMClient {
         }
     }
 
-    // Ask the server to forget the API key.
-    static async removeKey() {
+    // Ask the server to forget an API key.
+    static async removeKey(provider) {
         try {
-            await LLMClient._fetch('/api/key', { method: 'DELETE' });
+            const qs = provider ? `?provider=${provider}` : '';
+            await LLMClient._fetch(`/api/key${qs}`, { method: 'DELETE' });
         } catch { /* best-effort */ }
     }
 
-    static async chat({ systemPrompt, messages, model = 'claude-haiku-4-5-20251001' }) {
-        if (!ALLOWED_MODELS.has(model)) throw new Error(`Model not allowed: ${model}`);
+    static async chat({ systemPrompt, messages, model }) {
+        const m = model || LLMClient.currentModel;
+        if (!ALLOWED_MODELS.has(m)) throw new Error(`Model not allowed: ${m}`);
 
         const res = await LLMClient._fetch('/api/chat', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ systemPrompt, messages, model }),
+            body: JSON.stringify({ systemPrompt, messages, model: m }),
         });
 
         const data = await res.json().catch(() => null);

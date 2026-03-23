@@ -14,13 +14,14 @@ const MAX_ACTION_POINTS = 1;
 const MELEE_RANGE = 2;
 
 export default class Game {
-    constructor(canvas) {
+    constructor(canvas, playerName) {
         this.renderer = new Renderer(canvas, TILE_SIZE);
         this.ui = new UI();
         this.gameLog = new GameLog();
         this.debugLog = new DebugLog();
         this.canvas = canvas;
 
+        this.playerName = playerName;
         this.turn = 1;
         this.currentZoneIndex = 0;
 
@@ -39,7 +40,7 @@ export default class Game {
         this.reachableTiles = new Map();
 
         // Load cumulative token usage from server
-        LLMClient.getUsage().then(usage => this.ui.updateTokenUsage(usage));
+        LLMClient.getUsage().then(usage => this.ui.updateTokenUsage(usage, LLMClient.currentModel));
 
         // Visual overlays — cleared at the start of each End Turn, so player sees
         // their own movement and then NPC movements throughout their next turn.
@@ -99,7 +100,11 @@ export default class Game {
         this.grid = new Grid(zoneData);
         this.renderer.resize(zoneData.cols, zoneData.rows);
 
-        this.player = this.player || new Player(zoneData.playerStart.col, zoneData.playerStart.row);
+        if (!this.player) {
+            this.player = new Player(zoneData.playerStart.col, zoneData.playerStart.row);
+            this.player.name = this.playerName;
+            this.playerId = this.playerName.toLowerCase().replace(/\s+/g, '_');
+        }
         this.player.moveTo(zoneData.playerStart.col, zoneData.playerStart.row);
 
         this.npcs = [];
@@ -259,6 +264,7 @@ export default class Game {
     handleSpeak(text) {
         if (this.actionPoints <= 0 || this.phase !== 'player_turn') return;
 
+        text = text.slice(0, 200);
         this.actionPoints--;
         const pos = { col: this.player.col, row: this.player.row };
 
@@ -335,7 +341,7 @@ export default class Game {
             const result = await LLMClient.chat({ systemPrompt, messages });
             rawResponse = result.text;
             // Refresh cumulative usage from server
-            LLMClient.getUsage().then(usage => this.ui.updateTokenUsage(usage));
+            LLMClient.getUsage().then(usage => this.ui.updateTokenUsage(usage, LLMClient.currentModel));
             decision = NPC.parseLLMResponse(rawResponse);
             if (!decision) errorMsg = 'Response was not valid JSON.';
         } catch (err) {
@@ -383,7 +389,7 @@ export default class Game {
             // Find the target position
             let targetCol, targetRow;
             if (act.type === 'move_and_attack') {
-                if (act.targetId === 'player') {
+                if (act.targetId === this.playerId) {
                     targetCol = this.player.col;
                     targetRow = this.player.row;
                 } else {
@@ -519,7 +525,7 @@ export default class Game {
                 }
                 case 'attack': {
                     const targetId = act.targetId;
-                    if (targetId === 'player') {
+                    if (targetId === this.playerId) {
                         const dist = Math.abs(this.player.col - npc.col) + Math.abs(this.player.row - npc.row);
                         if (dist <= MELEE_RANGE) {
                             const dmg = this.player.takeDamage(npc.getDamage());

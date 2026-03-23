@@ -98,10 +98,11 @@ export default class NPC {
 
         // Attack entities within melee range, or flag move_and_attack if reachable
         const pDist = Math.abs(this.col - gameState.player.col) + Math.abs(this.row - gameState.player.row);
+        const playerId = gameState.player.name.toLowerCase().replace(/\s+/g, '_');
         if (pDist <= MELEE_RANGE) {
-            this.availableActions.push({ type: 'attack', targetId: 'player', targetName: gameState.player.name });
+            this.availableActions.push({ type: 'attack', targetId: playerId, targetName: gameState.player.name });
         } else if (this.movePoints > 0 && this._canReachMelee(gameState.player.col, gameState.player.row)) {
-            this.availableActions.push({ type: 'move_and_attack', targetId: 'player', targetName: gameState.player.name });
+            this.availableActions.push({ type: 'move_and_attack', targetId: playerId, targetName: gameState.player.name });
         }
         for (const other of gameState.npcs) {
             if (other.id !== this.id && other.alive) {
@@ -272,19 +273,21 @@ export default class NPC {
 
     // Build the messages array to send to the LLM for this turn
     buildLLMMessages(gameState) {
-        const turnPrompt = PromptBuilder.buildTurnPrompt(this, gameState);
+        const { full, compact } = PromptBuilder.buildTurnPrompt(this, gameState);
+        this._lastCompactPrompt = compact;
         return {
             systemPrompt: this.systemPrompt,
             messages: [
                 ...this.conversationHistory,
-                { role: 'user', content: turnPrompt },
+                { role: 'user', content: full },
             ],
         };
     }
 
-    // Record the LLM's response in conversation history so it has context for next turn
+    // Record the LLM's response in conversation history so it has context for next turn.
+    // Stores the compact prompt (without ephemeral actions/movement/format) to save tokens.
     recordTurn(turnPrompt, response) {
-        this.conversationHistory.push({ role: 'user', content: turnPrompt });
+        this.conversationHistory.push({ role: 'user', content: this._lastCompactPrompt || turnPrompt });
         this.conversationHistory.push({ role: 'assistant', content: response });
 
         // Mark all current memory as sent — next turn prompt will only show new events
@@ -348,14 +351,13 @@ export default class NPC {
     // gameState: { player, npcs, items }
     computeSurroundings(gameState) {
         this.nearbyEntities = [];
-        this.playerThreatLevel = 'unknown';
 
         // Player
         const pDist = Math.abs(this.col - gameState.player.col) + Math.abs(this.row - gameState.player.row);
         if (pDist <= this.bio.hearingRange) {
             const playerInfo = gameState.player.getPublicInfo?.() ?? {};
             this.nearbyEntities.push({
-                type: 'player',
+                type: 'npc',
                 name: gameState.player.name,
                 col: gameState.player.col,
                 row: gameState.player.row,
@@ -366,7 +368,6 @@ export default class NPC {
                 visibleEquipment: playerInfo.visibleEquipment,
                 interaction: this._describeInteraction(gameState.player.col, gameState.player.row, pDist, 'attack'),
             });
-            this.playerThreatLevel = this._assessThreat(gameState.player);
         }
 
         // Other NPCs
@@ -414,18 +415,6 @@ export default class NPC {
         return `out of range — would need to move closer`;
     }
 
-    _assessThreat(player) {
-        const damage = player.getDamage();
-        const armor = player.getArmor();
-        const hpPercent = player.hp / player.maxHp;
-        const score = damage + armor * 2 + hpPercent * 20;
-
-        if (score >= 60) return 'deadly';
-        if (score >= 40) return 'dangerous';
-        if (score >= 25) return 'moderate';
-        return 'low';
-    }
-
     // --- Full context snapshot (for LLM prompt) ---
 
     getFullContext() {
@@ -455,8 +444,6 @@ export default class NPC {
             position: { col: this.col, row: this.row },
             // Nearby entities and items within perception range
             nearbyEntities: [...(this.nearbyEntities || [])],
-            // Threat assessment of the player
-            playerThreatLevel: this.playerThreatLevel || 'unknown',
             // Available actions this turn
             availableActions: [...this.availableActions],
             // Bonus actions (free, don't cost action point)
