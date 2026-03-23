@@ -200,11 +200,8 @@ export default class UI {
         if (info.visibleEquipment) {
             const eq = info.visibleEquipment;
             for (const { key, label } of SLOT_ROWS) {
-                const row = document.createElement('div');
-                row.classList.add('info-eq-row');
                 const isEmpty = !eq[key] || eq[key].startsWith('bare') || eq[key] === 'empty handed';
-                row.innerHTML = `<span class="info-eq-label">${label}</span><span class="info-eq-item${isEmpty ? ' info-eq-empty' : ''}">${eq[key]}</span>`;
-                p.appendChild(row);
+                p.appendChild(this._eqRow(label, eq[key], isEmpty));
             }
         }
 
@@ -214,10 +211,7 @@ export default class UI {
             for (const { key, label } of SLOT_ROWS) {
                 const item = eq[key];
                 const text = item ? item.name : EMPTY[key];
-                const row = document.createElement('div');
-                row.classList.add('info-eq-row');
-                row.innerHTML = `<span class="info-eq-label">${label}</span><span class="info-eq-item${item ? '' : ' info-eq-empty'}">${text}</span>`;
-                p.appendChild(row);
+                p.appendChild(this._eqRow(label, text, !item));
             }
         }
 
@@ -448,6 +442,21 @@ export default class UI {
     hideDebugPanel() {
         this.debugSide.classList.add('hidden');
         this.btnDebug.classList.remove('debug-active');
+    }
+
+    _eqRow(label, value, isEmpty) {
+        const row = document.createElement('div');
+        row.classList.add('info-eq-row');
+        const labelEl = document.createElement('span');
+        labelEl.classList.add('info-eq-label');
+        labelEl.textContent = label;
+        const itemEl = document.createElement('span');
+        itemEl.classList.add('info-eq-item');
+        if (isEmpty) itemEl.classList.add('info-eq-empty');
+        itemEl.textContent = value;
+        row.appendChild(labelEl);
+        row.appendChild(itemEl);
+        return row;
     }
 
     _debugSection(title, content, className) {

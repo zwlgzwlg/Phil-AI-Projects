@@ -348,12 +348,13 @@ export default class Game {
 
         // Execute movement
         if (decision.moveTo) {
-            const valid = npc.availableCoordinates.some(
-                c => c.col === decision.moveTo.col && c.row === decision.moveTo.row
-            );
+            const targetCol = Number(decision.moveTo.col);
+            const targetRow = Number(decision.moveTo.row);
+            const valid = Number.isFinite(targetCol) && Number.isFinite(targetRow)
+                && npc.availableCoordinates.some(c => c.col === targetCol && c.row === targetRow);
             if (valid) {
                 const fromCol = npc.col, fromRow = npc.row;
-                npc.moveTo(decision.moveTo.col, decision.moveTo.row);
+                npc.moveTo(targetCol, targetRow);
                 this.movementTrails.push({ fromCol, fromRow, toCol: npc.col, toRow: npc.row, color: npc.color });
                 this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
             }
@@ -364,12 +365,20 @@ export default class Game {
 
         // Execute action
         if (decision.action) {
-            const actionAllowed = npc.availableActions.some(a => a.type === decision.action.type);
+            const act = decision.action;
+            // Validate that this specific action (type + target/item) was offered
+            const actionAllowed = npc.availableActions.some(a => {
+                if (a.type !== act.type) return false;
+                if (a.type === 'attack') return a.targetId === act.targetId;
+                if (a.type === 'use_item' || a.type === 'drop') return a.itemIndex === Number(act.itemIndex);
+                if (a.type === 'special_action') return a.name === act.name;
+                return true;
+            });
             if (!actionAllowed) return;
 
-            switch (decision.action.type) {
+            switch (act.type) {
                 case 'speak': {
-                    const msg = decision.action.message;
+                    const msg = act.message;
                     const pos = { col: npc.col, row: npc.row };
                     this.gameLog.add('speak', npc.name, null, msg, pos);
                     this.broadcast('speak', npc.name, pos, `${npc.name} says: "${msg}"`);
@@ -377,7 +386,7 @@ export default class Game {
                     break;
                 }
                 case 'attack': {
-                    const targetId = decision.action.targetId;
+                    const targetId = act.targetId;
                     if (targetId === 'player') {
                         const dist = Math.abs(this.player.col - npc.col) + Math.abs(this.player.row - npc.row);
                         if (dist <= MELEE_RANGE) {
@@ -386,7 +395,6 @@ export default class Game {
                             this.broadcast('attack', npc.name, { col: npc.col, row: npc.row }, `${npc.name} attacked ${this.player.name} for ${dmg} damage.`);
                         }
                     } else {
-                        // NPC attacking another NPC
                         const targetNpc = this.npcs.find(n => n.id === targetId);
                         if (targetNpc && targetNpc.alive) {
                             const dist = Math.abs(targetNpc.col - npc.col) + Math.abs(targetNpc.row - npc.row);
@@ -404,16 +412,16 @@ export default class Game {
                     break;
                 }
                 case 'use_item': {
-                    const idx = decision.action.itemIndex;
+                    const idx = Number(act.itemIndex);
                     if (idx >= 0 && idx < npc.inventory.length) {
-                        const item = npc.removeItem(idx);
+                        const item = npc.inventory[idx];
                         this.gameLog.add('use_item', npc.name, item.name, `${npc.name} used ${item.name}.`, { col: npc.col, row: npc.row });
                         this.broadcast('use_item', npc.name, { col: npc.col, row: npc.row }, `${npc.name} used ${item.name}.`);
                     }
                     break;
                 }
                 case 'drop': {
-                    const idx = decision.action.itemIndex;
+                    const idx = Number(act.itemIndex);
                     if (idx >= 0 && idx < npc.inventory.length) {
                         const dropTile = this.findDropTile(npc.col, npc.row);
                         if (dropTile) {
@@ -434,6 +442,14 @@ export default class Game {
                             this.gameLog.add('drop', npc.name, item.name, `${npc.name} dropped ${item.name}.`, { col: npc.col, row: npc.row });
                             this.broadcast('drop', npc.name, { col: npc.col, row: npc.row }, `${npc.name} dropped ${item.name}.`);
                         }
+                    }
+                    break;
+                }
+                case 'special_action': {
+                    const spec = npc.bio.specialActions.find(s => s.name === act.name);
+                    if (spec) {
+                        this.gameLog.add('special_action', npc.name, null, `${npc.name} used ${spec.name}.`, { col: npc.col, row: npc.row });
+                        this.broadcast('special_action', npc.name, { col: npc.col, row: npc.row }, `${npc.name} used ${spec.name}.`);
                     }
                     break;
                 }

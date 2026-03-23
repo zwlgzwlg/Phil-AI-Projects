@@ -21,7 +21,7 @@ function setStatus(result) {
 }
 
 function openKeyModal() {
-    document.getElementById('key-input').value = LLMClient.getKey() ?? '';
+    document.getElementById('key-input').value = '';
     const statusEl = document.getElementById('key-modal-status');
     statusEl.textContent = '';
     statusEl.className = '';
@@ -33,14 +33,7 @@ function closeKeyModal() {
     document.getElementById('key-modal').classList.add('hidden');
 }
 
-// Wire modal buttons once — work both before and after game starts (same DOM elements)
-document.getElementById('key-show-btn').addEventListener('click', () => {
-    const input = document.getElementById('key-input');
-    const btn = document.getElementById('key-show-btn');
-    input.type = input.type === 'password' ? 'text' : 'password';
-    btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
-});
-
+// Wire modal buttons
 document.getElementById('key-save-btn').addEventListener('click', async () => {
     const statusEl = document.getElementById('key-modal-status');
     const saveBtn = document.getElementById('key-save-btn');
@@ -61,13 +54,13 @@ document.getElementById('key-save-btn').addEventListener('click', async () => {
     }
 });
 
-document.getElementById('key-remove-btn').addEventListener('click', () => {
-    LLMClient.removeKey();
+document.getElementById('key-remove-btn').addEventListener('click', async () => {
+    await LLMClient.removeKey();
     document.getElementById('key-input').value = '';
     const statusEl = document.getElementById('key-modal-status');
     statusEl.textContent = 'Key removed.';
     statusEl.className = 'key-status-error';
-    setStatus({ ok: false, message: 'No API key — click ⚙ to add one' });
+    setStatus({ ok: false, message: 'No API key — click ⚙ to add one.' });
 });
 
 document.getElementById('key-cancel-btn').addEventListener('click', closeKeyModal);
@@ -77,10 +70,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const btnPlay = document.getElementById('btn-play');
     const btnSetup = document.getElementById('btn-setup');
 
-    setStatus(await LLMClient.getStatus());
+    const status = await LLMClient.getStatus();
+    setStatus(status);
 
-    // Show modal automatically if no key is saved
-    if (!LLMClient.getKey()) openKeyModal();
+    // Show modal automatically if no key is configured
+    if (!status.ok) openKeyModal();
 
     btnSetup.addEventListener('click', openKeyModal);
 

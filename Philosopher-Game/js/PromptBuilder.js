@@ -148,6 +148,9 @@ ${worldInfo}
                 case 'drop':
                     lines.push(`\`{"type": "drop", "itemIndex": ${a.itemIndex}}\` — Drop ${a.itemName} on the ground nearby.`);
                     break;
+                case 'special_action':
+                    lines.push(`\`{"type": "special_action", "name": "${a.name}"}\` — ${a.description}`);
+                    break;
                 case 'wait':
                     lines.push('`{"type": "wait"}` — Do nothing this turn.');
                     break;

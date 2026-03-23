@@ -1,6 +1,6 @@
-// Direct browser → Anthropic API (BYOK).
-// The key is stored in localStorage and sent directly to api.anthropic.com.
-// It never touches the game server.
+// Browser → local server → Anthropic API.
+// The API key never enters the browser. All requests are proxied through the game server.
+// A session token (fetched once on load) authenticates requests to the local server.
 
 const ALLOWED_MODELS = new Set([
     'claude-haiku-4-5-20251001',
@@ -8,83 +8,83 @@ const ALLOWED_MODELS = new Set([
     'claude-opus-4-6',
 ]);
 
-const API_URL = 'https://api.anthropic.com/v1/messages';
-const LS_KEY = 'philosopher_api_key';
+let sessionToken = null;
+
+async function ensureToken() {
+    if (!sessionToken) {
+        const res = await fetch('/api/token');
+        const data = await res.json();
+        sessionToken = data.token;
+    }
+    return sessionToken;
+}
 
 export default class LLMClient {
-    static getKey() {
-        return localStorage.getItem(LS_KEY) || null;
+    // Fetch wrapper that injects the session token header.
+    static async _fetch(url, options = {}) {
+        const token = await ensureToken();
+        options.headers = {
+            ...options.headers,
+            'x-session-token': token,
+        };
+        return fetch(url, options);
     }
 
-    static removeKey() {
-        localStorage.removeItem(LS_KEY);
+    // Check whether the server has an API key configured.
+    static async getStatus() {
+        try {
+            const res = await LLMClient._fetch('/api/status');
+            return await res.json();
+        } catch {
+            return { ok: false, message: 'Cannot reach game server.' };
+        }
     }
 
-    // Validates format, verifies with a real API call, then saves.
+    // Send a key to the server for validation and storage.
     // Returns { ok, message?, model? }
     static async setKey(rawKey) {
-        const key = (rawKey || '').trim();
-        if (!key) {
-            return { ok: false, message: 'No key provided.' };
-        }
-        if (!key.startsWith('sk-ant-')) {
-            return { ok: false, message: 'Key should start with sk-ant-…' };
-        }
         try {
-            const res = await fetch(API_URL, {
+            const res = await LLMClient._fetch('/api/key', {
                 method: 'POST',
-                headers: {
-                    'x-api-key': key,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-allow-browser': 'true',
-                    'content-type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'claude-haiku-4-5-20251001',
-                    max_tokens: 1,
-                    messages: [{ role: 'user', content: 'hi' }],
-                }),
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ key: rawKey }),
             });
-            if (res.status === 401) return { ok: false, message: 'Invalid API key.' };
-            if (!res.ok) return { ok: false, message: `Anthropic error (${res.status})` };
+            return await res.json();
         } catch {
-            return { ok: false, message: 'Network error — check connection.' };
+            return { ok: false, message: 'Cannot reach game server.' };
         }
-        localStorage.setItem(LS_KEY, key);
-        return { ok: true, model: 'claude-haiku-4-5-20251001' };
     }
 
-    // Returns { ok, message?, model? } — no network call.
-    static async getStatus() {
-        const key = LLMClient.getKey();
-        if (!key) return { ok: false, message: 'No API key — click ⚙ to add one' };
-        return { ok: true, model: 'claude-haiku-4-5-20251001' };
+    // Ask the server to forget the API key.
+    static async removeKey() {
+        try {
+            await LLMClient._fetch('/api/key', { method: 'DELETE' });
+        } catch { /* best-effort */ }
     }
 
     static async chat({ systemPrompt, messages, model = 'claude-haiku-4-5-20251001' }) {
-        const key = LLMClient.getKey();
-        if (!key) throw new Error('No API key — open ⚙ Settings to add one');
         if (!ALLOWED_MODELS.has(model)) throw new Error(`Model not allowed: ${model}`);
 
-        const res = await fetch(API_URL, {
+        const res = await LLMClient._fetch('/api/chat', {
             method: 'POST',
-            headers: {
-                'x-api-key': key,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-allow-browser': 'true',
-                'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-                model,
-                max_tokens: 512,  // caps cost per call
-                system: systemPrompt,
-                messages,
-            }),
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ systemPrompt, messages, model }),
         });
 
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 401) throw new Error('Invalid API key — open ⚙ Settings to update it');
-        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-        return data.content[0].text;
+        const data = await res.json().catch(() => null);
+        if (!data) throw new Error('Failed to parse server response.');
+
+        if (!res.ok) {
+            throw new Error(data.error || `Server error (HTTP ${res.status}).`);
+        }
+
+        if (!data.content || data.content.length === 0) {
+            throw new Error(`Empty response from API (stop_reason: ${data.stop_reason ?? 'unknown'}).`);
+        }
+        const text = data.content[0].text;
+        if (typeof text !== 'string') {
+            throw new Error(`Unexpected content type "${data.content[0].type}" — expected text.`);
+        }
+        return text;
     }
 }

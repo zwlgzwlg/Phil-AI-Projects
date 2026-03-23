@@ -76,14 +76,14 @@
         <div id="key-modal-box">
             <div id="key-modal-title">API KEY</div>
             <div id="key-modal-desc">
-                NPCs are powered by Claude. Your key is stored in your browser only —
-                requests go directly to <strong>api.anthropic.com</strong>, never to this server.<br><br>
-                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get a key at console.anthropic.com →</a><br><br>
-                <em>Your key is visible in browser devtools (Network tab). This is expected.</em>
+                NPCs are powered by Claude. Your key is sent to the local game server
+                and stored in memory — it is <strong>never</strong> exposed to the browser or sent anywhere
+                except <strong>api.anthropic.com</strong>.<br><br>
+                You can also set <code>ANTHROPIC_API_KEY</code> in <code>.env</code> before starting the server.<br><br>
+                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get a key at console.anthropic.com →</a>
             </div>
             <div id="key-input-row">
                 <input type="password" id="key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
-                <button id="key-show-btn">Show</button>
             </div>
             <div id="key-modal-status"></div>
             <div id="key-modal-buttons">
