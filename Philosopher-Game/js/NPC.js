@@ -264,8 +264,8 @@ export default class NPC {
     // --- LLM conversation management ---
 
     // Called when entering a zone — sets up the system prompt for this NPC's LLM instance
-    initConversation(zoneName) {
-        this.systemPrompt = PromptBuilder.buildSystemPrompt(this, PromptBuilder.getWorldInfo(zoneName));
+    initConversation() {
+        this.systemPrompt = PromptBuilder.buildSystemPrompt(this);
         this.conversationHistory = [];
         this._lastSentMemoryIndex = 0;
     }
@@ -364,6 +364,7 @@ export default class NPC {
                 maxHp: gameState.player.maxHp,
                 appearance: playerInfo.description || gameState.player.description,
                 visibleEquipment: playerInfo.visibleEquipment,
+                interaction: this._describeInteraction(gameState.player.col, gameState.player.row, pDist, 'attack'),
             });
             this.playerThreatLevel = this._assessThreat(gameState.player);
         }
@@ -384,6 +385,7 @@ export default class NPC {
                     maxHp: other.bio.maxHp,
                     appearance: pubInfo.description,
                     visibleEquipment: pubInfo.visibleEquipment,
+                    interaction: this._describeInteraction(other.col, other.row, dist, 'attack'),
                 });
             }
         }
@@ -399,9 +401,17 @@ export default class NPC {
                     col: item.col,
                     row: item.row,
                     distance: dist,
+                    interaction: this._describeInteraction(item.col, item.row, dist, 'pick up'),
                 });
             }
         }
+    }
+
+    // Describe what this NPC can currently do with a target at (col, row)
+    _describeInteraction(col, row, dist, verb) {
+        if (dist <= MELEE_RANGE) return `can ${verb} now`;
+        if (this.movePoints > 0 && this._canReachMelee(col, row)) return `can move and ${verb} this turn`;
+        return `out of range — would need to move closer`;
     }
 
     _assessThreat(player) {

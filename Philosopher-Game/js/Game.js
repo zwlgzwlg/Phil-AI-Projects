@@ -107,7 +107,7 @@ export default class Game {
             const data = NPC_DATA[npcId];
             if (data) {
                 const npc = new NPC(npcId, data, data.col, data.row);
-                npc.initConversation(zoneData.name);
+                npc.initConversation();
                 this.debugLog.recordSystemPrompt(npcId, data.name, npc.systemPrompt);
                 this.npcs.push(npc);
             }

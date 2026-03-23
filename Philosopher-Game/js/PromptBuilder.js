@@ -7,20 +7,18 @@ export default class PromptBuilder {
 
     // Build the system prompt for an NPC. This is set once when entering a zone
     // and stays stable across turns (the "conversation" with the LLM).
-    static buildSystemPrompt(npc, worldInfo) {
+    static buildSystemPrompt(npc) {
         const ctx = npc.getFullContext();
 
         return `You are roleplaying as ${ctx.bio.name} in a turn-based grid RPG called "Philosopher".
-
-## GAME RULES
-${worldInfo}
 
 ## ROLEPLAY INSTRUCTIONS
 - You ARE ${ctx.bio.name}. Stay in character at all times.
 - Speak in first person when using the "speak" action. Your speech will be heard by anyone within ${ctx.bio.hearingRange} squares.
 - You have your own goals, knowledge, and personality. Pursue them naturally.
-- You do not know things your character wouldn't know. Only act on information from your memory log.
-- When you speak, keep it concise (1-2 sentences). You are in a game, not writing an essay.
+- When you speak, keep it concise (1 sentence, 2 MAX).` +
+// '- You do not know things your character wouldn\'t know. Only act on information from your memory log.' +
+`
 - You may lie, deceive, bargain, threaten, or cooperate — whatever fits your character.
 - You choose one movement, one action, optionally one bonus action (drop/equip/unequip — free), and write a private scheme per turn. You must respond with valid JSON.
 - The "scheme" field is your private internal monologue — use it to plan ahead, reason about the situation, and leave notes for your future self. No one else can see it. It is added to your memory for future turns.
@@ -70,9 +68,9 @@ ${worldInfo}
                         : null;
                     const appearStr = e.appearance ? ` "${e.appearance}"` : '';
                     const eqStr = eqParts ? ` Visible equipment: [${eqParts}].` : '';
-                    lines.push(`- **${e.name}** (${e.type}) at (${e.col}, ${e.row}), dist ${e.distance}, HP ${e.hp}/${e.maxHp}.${appearStr}${eqStr}`);
+                    lines.push(`- **${e.name}** (${e.type}) at (${e.col}, ${e.row}), dist ${e.distance}, HP ${e.hp}/${e.maxHp}.${appearStr}${eqStr} [${e.interaction}]`);
                 } else if (e.type === 'item') {
-                    lines.push(`- **${e.name}** (item) at (${e.col}, ${e.row}), dist ${e.distance}`);
+                    lines.push(`- **${e.name}** (item) at (${e.col}, ${e.row}), dist ${e.distance}. [${e.interaction}]`);
                 }
             }
         }
@@ -126,7 +124,7 @@ ${worldInfo}
         // Response format
         lines.push('');
         lines.push('## RESPONSE FORMAT');
-        lines.push('Respond with a JSON object. Nothing else — no markdown, no explanation. Incorrect JSON will cause your turn to be skipped.');
+        lines.push('Respond with a JSON object only:');
         lines.push('```');
         lines.push('{');
         lines.push('  "moveTo": {"col": <number>, "row": <number>} or null,');
@@ -142,7 +140,7 @@ ${worldInfo}
         lines.push('    "itemIndex": <number> (for drop/equip),');
         lines.push('    "slot": "<slot>" (for unequip)');
         lines.push('  } or null,');
-        lines.push('  "scheme": "<your private thoughts and plans — only you can see this>"');
+        lines.push('  "scheme": "<your private thoughts and plans>"');
         lines.push('}');
         lines.push('```');
 
@@ -209,14 +207,4 @@ ${worldInfo}
         return [...groups.entries()].sort((a, b) => a[0] - b[0]);
     }
 
-    // World info string — stable background about the game world
-    static getWorldInfo(zoneName) {
-        return `"Philosopher" is a turn-based grid RPG set in ancient Athens. The city is ruled by the 30 Tyrants.
-Each turn, every character (player and NPCs) gets movement points and 1 action point.
-Actions: speak (say something aloud), attack (melee range 2 squares), move_and_attack (move into range then attack), pickup (pick up a nearby item), move_and_pickup, use_item, or wait.
-Bonus actions (free, in addition to your main action): drop, equip, unequip.
-Speech is heard by everyone within hearing range. Melee attacks reach 2 squares by default (Manhattan distance).
-The player is a wandering philosopher trying to navigate the city. NPCs are independent characters with their own goals.
-You are currently in the ${zoneName}.`;
-    }
 }
