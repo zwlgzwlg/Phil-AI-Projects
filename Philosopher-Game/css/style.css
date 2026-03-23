@@ -27,7 +27,6 @@ body {
 #game-wrapper {
     display: flex;
     flex-direction: column;
-    max-width: fit-content;
 }
 
 #top-bar {
@@ -255,6 +254,8 @@ body {
     flex-direction: column;
     border: 1px solid #333;
     border-top: none;
+    width: 0;
+    min-width: 100%;
 }
 
 #log-header {

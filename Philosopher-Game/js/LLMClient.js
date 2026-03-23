@@ -40,6 +40,16 @@ export default class LLMClient {
         }
     }
 
+    // Fetch cumulative token usage from the server.
+    static async getUsage() {
+        try {
+            const res = await LLMClient._fetch('/api/usage');
+            return await res.json();
+        } catch {
+            return { input: 0, output: 0 };
+        }
+    }
+
     // Send a key to the server for validation and storage.
     // Returns { ok, message?, model? }
     static async setKey(rawKey) {

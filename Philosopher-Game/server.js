@@ -19,6 +19,9 @@ const MAX_TOKENS = 512;
 // API key lives here in server memory — never sent to the browser.
 let apiKey = process.env.ANTHROPIC_API_KEY || null;
 
+// Cumulative token usage — persists across page refreshes (resets on server restart)
+const tokenUsage = { input: 0, output: 0 };
+
 // Session token — generated at startup, required on all /api/* requests.
 // This is a speed bump, not a hard boundary: any local process can fetch /api/token
 // and replay it. The real security boundary is the loopback bind (127.0.0.1) which
@@ -156,7 +159,18 @@ app.post('/api/chat', async (req, res) => {
         });
     }
 
+    // Track token usage
+    if (data.usage) {
+        tokenUsage.input += data.usage.input_tokens || 0;
+        tokenUsage.output += data.usage.output_tokens || 0;
+    }
+
     res.json(data);
+});
+
+// Cumulative token usage across refreshes
+app.get('/api/usage', (req, res) => {
+    res.json(tokenUsage);
 });
 
 // Static files (after API routes so /api/* isn't caught by static)

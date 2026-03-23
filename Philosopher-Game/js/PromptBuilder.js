@@ -20,7 +20,7 @@ ${worldInfo}
 - Speak in first person when using the "speak" action. Your speech will be heard by anyone within ${ctx.bio.hearingRange} squares.
 - You have your own goals, knowledge, and personality. Pursue them naturally.
 - You do not know things your character wouldn't know. Only act on information from your memory log.
-- When you speak, keep it concise (1-3 sentences). You are in a game, not writing an essay.
+- When you speak, keep it concise (1-2 sentences). You are in a game, not writing an essay.
 - You may lie, deceive, bargain, threaten, or cooperate — whatever fits your character.
 - You choose one movement, one action, and write a private scheme per turn. You must respond with valid JSON.
 - The "scheme" field is your private internal monologue — use it to plan ahead, reason about the situation, and leave notes for your future self. No one else can see it. It is added to your memory for future turns.
@@ -122,7 +122,7 @@ ${worldInfo}
         lines.push('  "action": {');
         lines.push('    "type": "<action_type>",');
         lines.push('    "message": "<your speech>" (only for speak),');
-        lines.push('    "targetId": "<id>" (only for attack),');
+        lines.push('    "targetId": "<id>" (only for attack/move_and_attack),');
         lines.push('    "itemIndex": <number> (only for use_item/drop)');
         lines.push('  } or null,');
         lines.push('  "scheme": "<your private thoughts and plans — only you can see this>"');
@@ -141,6 +141,9 @@ ${worldInfo}
                     break;
                 case 'attack':
                     lines.push(`\`{"type": "attack", "targetId": "${a.targetId}"}\` — Attack ${a.targetName}.`);
+                    break;
+                case 'move_and_attack':
+                    lines.push(`\`{"type": "move_and_attack", "targetId": "${a.targetId}"}\` — Move into range and attack ${a.targetName}. (Requires movement + action.)`);
                     break;
                 case 'use_item':
                     lines.push(`\`{"type": "use_item", "itemIndex": ${a.itemIndex}}\` — Use ${a.itemName}.`);
@@ -172,7 +175,7 @@ ${worldInfo}
     static getWorldInfo(zoneName) {
         return `"Philosopher" is a turn-based grid RPG set in ancient Athens. The city is ruled by the 30 Tyrants.
 Each turn, every character (player and NPCs) gets movement points and 1 action point.
-Actions: speak (say something aloud), attack (melee range 2 squares), use_item, drop (put an item on the ground), or wait.
+Actions: speak (say something aloud), attack (melee range 2 squares), move_and_attack (move into range then attack), use_item, drop (put an item on the ground), or wait.
 Speech is heard by everyone within hearing range. Melee attacks reach 2 squares by default (Manhattan distance).
 The player is a wandering philosopher trying to navigate the city. NPCs are independent characters with their own goals.
 You are currently in the ${zoneName}.`;

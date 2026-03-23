@@ -39,7 +39,7 @@ export default class NPC {
             hp: data.hp,
             // Arbitrary condition flags that can be added/removed at runtime
             // e.g. { poisoned: true, convinced: false, suspicious: true }
-            flags: { ...data.initialFlags },
+            flags: { ...(data.initialFlags || {}) },
         };
 
         // --- Equipment ---
@@ -96,16 +96,20 @@ export default class NPC {
         // Speak (always available if has action point)
         this.availableActions.push({ type: 'speak' });
 
-        // Attack entities within melee range
+        // Attack entities within melee range, or flag move_and_attack if reachable
         const pDist = Math.abs(this.col - gameState.player.col) + Math.abs(this.row - gameState.player.row);
         if (pDist <= MELEE_RANGE) {
             this.availableActions.push({ type: 'attack', targetId: 'player', targetName: gameState.player.name });
+        } else if (this.movePoints > 0 && this._canReachMelee(gameState.player.col, gameState.player.row)) {
+            this.availableActions.push({ type: 'move_and_attack', targetId: 'player', targetName: gameState.player.name });
         }
         for (const other of gameState.npcs) {
             if (other.id !== this.id && other.alive) {
                 const dist = Math.abs(this.col - other.col) + Math.abs(this.row - other.row);
                 if (dist <= MELEE_RANGE) {
                     this.availableActions.push({ type: 'attack', targetId: other.id, targetName: other.name });
+                } else if (this.movePoints > 0 && this._canReachMelee(other.col, other.row)) {
+                    this.availableActions.push({ type: 'move_and_attack', targetId: other.id, targetName: other.name });
                 }
             }
         }
@@ -123,6 +127,28 @@ export default class NPC {
 
         // Wait (always)
         this.availableActions.push({ type: 'wait' });
+    }
+
+    // Check if any of the NPC's reachable tiles are within melee range of (targetCol, targetRow)
+    _canReachMelee(targetCol, targetRow) {
+        for (const coord of this.availableCoordinates) {
+            const dist = Math.abs(coord.col - targetCol) + Math.abs(coord.row - targetRow);
+            if (dist <= MELEE_RANGE) return true;
+        }
+        return false;
+    }
+
+    // Find the closest reachable tile within melee range of (targetCol, targetRow)
+    _findClosestMeleePosition(targetCol, targetRow) {
+        let best = null;
+        for (const coord of this.availableCoordinates) {
+            const dist = Math.abs(coord.col - targetCol) + Math.abs(coord.row - targetRow);
+            if (dist > MELEE_RANGE) continue;
+            if (!best || coord.dist < best.dist) {
+                best = { col: coord.col, row: coord.row, dist: coord.dist };
+            }
+        }
+        return best;
     }
 
     // --- Perception ---

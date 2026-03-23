@@ -38,8 +38,8 @@ export default class Game {
         this.cursor = null;
         this.reachableTiles = new Map();
 
-        // Token usage tracking
-        this.tokenUsage = { input: 0, output: 0 };
+        // Load cumulative token usage from server
+        LLMClient.getUsage().then(usage => this.ui.updateTokenUsage(usage));
 
         // Visual overlays — cleared at the start of each End Turn, so player sees
         // their own movement and then NPC movements throughout their next turn.
@@ -194,6 +194,20 @@ export default class Game {
         return (Math.abs(this.player.col - col) + Math.abs(this.player.row - row)) <= MELEE_RANGE;
     }
 
+    // Find the closest reachable tile that puts the player within melee range of (targetCol, targetRow).
+    // Returns { col, row, dist } or null if no such tile exists.
+    findClosestReachableMeleePosition(targetCol, targetRow) {
+        let best = null;
+        for (const [, tile] of this.reachableTiles) {
+            const meleeDistFromTile = Math.abs(tile.col - targetCol) + Math.abs(tile.row - targetRow);
+            if (meleeDistFromTile > MELEE_RANGE) continue;
+            if (!best || tile.dist < best.dist) {
+                best = { col: tile.col, row: tile.row, dist: tile.dist };
+            }
+        }
+        return best;
+    }
+
     broadcast(type, actorName, position, details) {
         for (const npc of this.npcs) {
             if (!npc.alive) continue;
@@ -319,11 +333,8 @@ export default class Game {
         try {
             const result = await LLMClient.chat({ systemPrompt, messages });
             rawResponse = result.text;
-            if (result.usage) {
-                this.tokenUsage.input += result.usage.input_tokens || 0;
-                this.tokenUsage.output += result.usage.output_tokens || 0;
-                this.ui.updateTokenUsage(this.tokenUsage);
-            }
+            // Refresh cumulative usage from server
+            LLMClient.getUsage().then(usage => this.ui.updateTokenUsage(usage));
             decision = NPC.parseLLMResponse(rawResponse);
             if (!decision) errorMsg = 'Response was not valid JSON.';
         } catch (err) {
@@ -356,17 +367,49 @@ export default class Game {
             npc.addMemory({ turn: this.turn, type: 'scheme', actor: npc.name, details: `[Private thought] ${decision.scheme}` });
         }
 
-        // Execute movement
-        if (decision.moveTo) {
-            const targetCol = Number(decision.moveTo.col);
-            const targetRow = Number(decision.moveTo.row);
-            const valid = Number.isFinite(targetCol) && Number.isFinite(targetRow)
-                && npc.availableCoordinates.some(c => c.col === targetCol && c.row === targetRow);
-            if (valid) {
-                const fromCol = npc.col, fromRow = npc.row;
-                npc.moveTo(targetCol, targetRow);
-                this.movementTrails.push({ fromCol, fromRow, toCol: npc.col, toRow: npc.row, color: npc.color });
-                this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
+        // Handle move_and_attack: auto-move to closest melee tile then attack
+        if (decision.action?.type === 'move_and_attack') {
+            const act = decision.action;
+            const wasOffered = npc.availableActions.some(a => a.type === 'move_and_attack' && a.targetId === act.targetId);
+            if (!wasOffered) return;
+
+            // Find the target entity
+            let targetCol, targetRow;
+            if (act.targetId === 'player') {
+                targetCol = this.player.col;
+                targetRow = this.player.row;
+            } else {
+                const targetNpc = this.npcs.find(n => n.id === act.targetId);
+                if (!targetNpc || !targetNpc.alive) return;
+                targetCol = targetNpc.col;
+                targetRow = targetNpc.row;
+            }
+
+            const meleePos = npc._findClosestMeleePosition(targetCol, targetRow);
+            if (!meleePos) return;
+
+            // Move to melee position
+            const fromCol = npc.col, fromRow = npc.row;
+            npc.moveTo(meleePos.col, meleePos.row);
+            this.movementTrails.push({ fromCol, fromRow, toCol: npc.col, toRow: npc.row, color: npc.color });
+            this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
+
+            // Now execute the attack (rewrite action as plain attack for the switch below)
+            decision.action = { type: 'attack', targetId: act.targetId };
+            // Fall through to normal action handling
+        } else {
+            // Execute normal movement
+            if (decision.moveTo) {
+                const targetCol = Number(decision.moveTo.col);
+                const targetRow = Number(decision.moveTo.row);
+                const valid = Number.isFinite(targetCol) && Number.isFinite(targetRow)
+                    && npc.availableCoordinates.some(c => c.col === targetCol && c.row === targetRow);
+                if (valid) {
+                    const fromCol = npc.col, fromRow = npc.row;
+                    npc.moveTo(targetCol, targetRow);
+                    this.movementTrails.push({ fromCol, fromRow, toCol: npc.col, toRow: npc.row, color: npc.color });
+                    this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
+                }
             }
         }
 
@@ -580,34 +623,68 @@ export default class Game {
     buildContextOptions(col, row) {
         const options = [];
         const hasAction = this.actionPoints > 0;
+        const hasMove = this.movePoints > 0;
         const dist = Math.abs(this.player.col - col) + Math.abs(this.player.row - row);
         const inMelee = dist <= MELEE_RANGE;
+
+        // If not in melee, check if we can move to get in range
+        const moveTarget = (!inMelee && hasMove)
+            ? this.findClosestReachableMeleePosition(col, row)
+            : null;
+        const canMoveIntoRange = moveTarget !== null;
 
         // --- NPC on this tile ---
         const npc = this.getEntityAt(col, row);
         if (npc) {
             if (npc.alive) {
-                // Attack — always first, greyed if out of range or no action
-                const canAttack = inMelee && hasAction;
-                options.push({
-                    label: !inMelee ? `Attack ${npc.name}  (too far)` : `Attack ${npc.name}`,
-                    disabled: !canAttack,
-                    action: () => this.doAttack(npc),
-                });
+                if (inMelee) {
+                    // Direct attack
+                    options.push({
+                        label: `Attack ${npc.name}`,
+                        disabled: !hasAction,
+                        action: () => this.doAttack(npc),
+                    });
+                } else if (canMoveIntoRange) {
+                    // Move and attack
+                    options.push({
+                        label: `Move and attack ${npc.name}`,
+                        disabled: !hasAction,
+                        action: () => this.doMoveAndAttack(npc, moveTarget),
+                    });
+                } else {
+                    options.push({
+                        label: `Attack ${npc.name}  (too far)`,
+                        disabled: true,
+                        action: () => {},
+                    });
+                }
 
                 // Inventory items that can be used on an entity
                 for (let i = 0; i < this.player.inventory.length; i++) {
                     const invItem = this.player.inventory[i];
                     if (!invItem.onEntityUse) continue;
-                    const label = invItem.onEntityUse.label
+                    const baseLabel = invItem.onEntityUse.label
                         ? `${invItem.onEntityUse.label} ${npc.name}`
                         : `Use ${invItem.name} on ${npc.name}`;
-                    const canUse = inMelee && hasAction;
-                    options.push({
-                        label: !inMelee ? `${label}  (too far)` : label,
-                        disabled: !canUse,
-                        action: () => this.handleItemOnEntity(i, npc),
-                    });
+                    if (inMelee) {
+                        options.push({
+                            label: baseLabel,
+                            disabled: !hasAction,
+                            action: () => this.handleItemOnEntity(i, npc),
+                        });
+                    } else if (canMoveIntoRange) {
+                        options.push({
+                            label: `Move and ${baseLabel.charAt(0).toLowerCase()}${baseLabel.slice(1)}`,
+                            disabled: !hasAction,
+                            action: () => this.doMoveAndUseItem(i, npc, moveTarget),
+                        });
+                    } else {
+                        options.push({
+                            label: `${baseLabel}  (too far)`,
+                            disabled: true,
+                            action: () => {},
+                        });
+                    }
                 }
             } else {
                 // Loot dead body
@@ -619,12 +696,25 @@ export default class Game {
                     options.push({ label: `${npc.name}'s body (nothing to take)`, disabled: true, action: () => {} });
                 } else {
                     for (const lootItem of lootable) {
-                        const canLoot = inMelee && hasAction;
-                        options.push({
-                            label: !inMelee ? `Take ${lootItem.name}  (too far)` : `Take ${lootItem.name}`,
-                            disabled: !canLoot,
-                            action: () => this.doLootNpc(npc, lootItem),
-                        });
+                        if (inMelee) {
+                            options.push({
+                                label: `Take ${lootItem.name}`,
+                                disabled: !hasAction,
+                                action: () => this.doLootNpc(npc, lootItem),
+                            });
+                        } else if (canMoveIntoRange) {
+                            options.push({
+                                label: `Move and take ${lootItem.name}`,
+                                disabled: !hasAction,
+                                action: () => this.doMoveAndLoot(npc, lootItem, moveTarget),
+                            });
+                        } else {
+                            options.push({
+                                label: `Take ${lootItem.name}  (too far)`,
+                                disabled: true,
+                                action: () => {},
+                            });
+                        }
                     }
                 }
             }
@@ -634,22 +724,49 @@ export default class Game {
         const item = this.getItemAt(col, row);
         if (item) {
             const displayName = item.visibleName || item.name;
-            const canPickup = inMelee && hasAction;
-            options.push({
-                label: !inMelee ? `Pick up ${displayName}  (too far)` : `Pick up ${displayName}`,
-                disabled: !canPickup,
-                action: () => this.doPickup(item),
-            });
+            if (inMelee) {
+                options.push({
+                    label: `Pick up ${displayName}`,
+                    disabled: !hasAction,
+                    action: () => this.doPickup(item),
+                });
+            } else if (canMoveIntoRange) {
+                options.push({
+                    label: `Move and pick up ${displayName}`,
+                    disabled: !hasAction,
+                    action: () => this.doMoveAndPickup(item, moveTarget),
+                });
+            } else {
+                options.push({
+                    label: `Pick up ${displayName}  (too far)`,
+                    disabled: true,
+                    action: () => {},
+                });
+            }
         }
 
         // --- Door entity on this tile ---
         const door = this.getDoorAt(col, row);
         if (door) {
-            options.push({
-                label: !inMelee ? 'Traverse  (too far)' : 'Traverse',
-                disabled: !inMelee,
-                action: () => this.doTraverse(door),
-            });
+            if (inMelee) {
+                options.push({
+                    label: 'Traverse',
+                    disabled: false,
+                    action: () => this.doTraverse(door),
+                });
+            } else if (canMoveIntoRange) {
+                options.push({
+                    label: 'Move and traverse',
+                    disabled: false,
+                    action: () => this.doMoveAndTraverse(door, moveTarget),
+                });
+            } else {
+                options.push({
+                    label: 'Traverse  (too far)',
+                    disabled: true,
+                    action: () => {},
+                });
+            }
         }
 
         if (options.length > 0) {
@@ -761,6 +878,47 @@ export default class Game {
         this.movePoints = MAX_MOVE_POINTS;
         this.actionPoints = MAX_ACTION_POINTS;
         this.refreshTurnState();
+    }
+
+    // --- Move-and-action combos (player moves to closest melee tile, then acts) ---
+
+    _doPlayerMove(moveTarget) {
+        const fromCol = this.player.col, fromRow = this.player.row;
+        this.player.moveTo(moveTarget.col, moveTarget.row);
+        this.movementTrails.push({ fromCol, fromRow, toCol: moveTarget.col, toRow: moveTarget.row, color: this.player.color });
+        this.movePoints -= moveTarget.dist;
+        this.gameLog.add('move', this.player.name, null, `${this.player.name} moved (${moveTarget.dist} steps).`, { col: moveTarget.col, row: moveTarget.row });
+        this.broadcast('move', this.player.name, { col: moveTarget.col, row: moveTarget.row }, `${this.player.name} moved.`);
+    }
+
+    doMoveAndAttack(npc, moveTarget) {
+        if (this.actionPoints <= 0 || this.movePoints <= 0) return;
+        this._doPlayerMove(moveTarget);
+        this.doAttack(npc);
+    }
+
+    doMoveAndPickup(item, moveTarget) {
+        if (this.actionPoints <= 0 || this.movePoints <= 0) return;
+        this._doPlayerMove(moveTarget);
+        this.doPickup(item);
+    }
+
+    doMoveAndLoot(npc, lootItem, moveTarget) {
+        if (this.actionPoints <= 0 || this.movePoints <= 0) return;
+        this._doPlayerMove(moveTarget);
+        this.doLootNpc(npc, lootItem);
+    }
+
+    doMoveAndTraverse(door, moveTarget) {
+        if (this.movePoints <= 0) return;
+        this._doPlayerMove(moveTarget);
+        this.doTraverse(door);
+    }
+
+    doMoveAndUseItem(itemIndex, npc, moveTarget) {
+        if (this.actionPoints <= 0 || this.movePoints <= 0) return;
+        this._doPlayerMove(moveTarget);
+        this.handleItemOnEntity(itemIndex, npc);
     }
 
     handleUseItem(index) {

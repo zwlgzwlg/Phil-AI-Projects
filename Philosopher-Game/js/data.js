@@ -103,11 +103,6 @@ export const NPC_DATA = {
         appearance: 'A dignified Roman orator.',
         bio: 'Marcus Tullius Cicero, Roman statesman and orator. A wise and eloquent advisor who believes there are two forms of conflict: one proceeds by debate, the other by force. He always prefers the former. Friendly and eager to help newcomers. Knows the layout of the Agora well. Has heard that Zeno blocks the passage to the Academy with riddles, and that Ptolemy guards the Acropolis for the Tyrants. Will offer advice freely if asked.',
 
-        // Conditions (initial temporary traits)
-        initialFlags: {
-            advisor: true,
-        },
-
         // Starting equipment
         initialEquipment: {
             body: { name: 'Senatorial Toga', visibleName: 'Senatorial Toga', description: 'A pristine white toga marking its wearer as a senator of Rome.', equipSlot: 'body' },
@@ -141,11 +136,6 @@ export const NPC_DATA = {
         appearance: 'A wiry Greek with an intense, unsettling gaze.',
         bio: 'Zeno of Elea, master of paradoxes. Obsessed with riddles about motion and infinity. He guards the bridge to the Academy and will not move until his riddle is solved. Stubborn but fair — if you solve his puzzle, he respects you. Knows that Ptolemy guards the Acropolis. Has heard the Tyrants fear a wandering philosopher. Knows a secret: the Tyrants cannot count past thirty.',
 
-        initialFlags: {
-            blocking_path: true,
-            riddle_solved: false,
-        },
-
         initialEquipment: {
             body: { name: "Philosopher's Himation", visibleName: "Worn himation", description: 'A coarse woollen cloak, worn with the indifference of a man who thinks clothing is an illusion.', equipSlot: 'body' },
             feet: { name: 'Old Sandals', visibleName: 'Old sandals', description: 'Battered leather sandals, much walked-in.', equipSlot: 'feet' },
@@ -177,10 +167,6 @@ export const NPC_DATA = {
         appearance: 'A broad-shouldered man with a calm, searching gaze.',
         bio: 'Plato of Athens, founder of this Academy. Believes the visible world is merely a shadow of a higher realm of perfect, eternal Forms — the Form of Beauty, of Justice, of the Good. The physical world is real only insofar as it participates in these Forms. Has a deep but complicated relationship with Aristotle, his most gifted student, who rejects the Theory of Forms and insists universals are merely patterns abstracted from things. Plato finds Aristotle\'s view clever but ultimately blind to the deeper truth. Finds Zeno\'s paradoxes interesting but considers them a distraction — motion is less real than the unchanging Forms anyway. Was once involved in a disastrous attempt to install a philosopher-king in Syracuse; does not speak of it freely. Is troubled by the Tyrants but believes the answer is philosophical education, not violence. Happy to debate with Aristotle and Zeno at length; they have been arguing for years.',
 
-        initialFlags: {
-            founding_academic: true,
-        },
-
         initialEquipment: {
             body: { name: 'Academic Himation', visibleName: 'Fine himation', description: 'A well-made woollen cloak befitting the head of a philosophical school.', equipSlot: 'body' },
         },
@@ -210,10 +196,6 @@ export const NPC_DATA = {
         appearance: 'A sharp-eyed man who moves with purposeful energy.',
         bio: 'Aristotle of Stagira, student of Plato and increasingly convinced his teacher is wrong. The Forms do not exist in some separate realm — universals are real patterns that exist within particular things, abstracted by the mind. You learn about justice by studying just acts, not by contemplating a disembodied Form of Justice. Has been cataloguing the animals, plants, and political constitutions of Greece and considers empirical observation the foundation of all knowledge. Respects Plato enormously as a person and thinker, even while disagreeing with him on nearly everything of substance. Finds Zeno\'s paradoxes a genuine puzzle but believes they are dissolved by proper analysis of continuous quantity and potential versus actual infinity. Is not especially concerned with the Tyrants as a political matter — believes good government is about the right constitution for a given people, not about who holds power at any moment. Will argue a point at length and with considerable pleasure.',
 
-        initialFlags: {
-            studying_nature: true,
-        },
-
         initialEquipment: {
             body: { name: "Traveller's Cloak", visibleName: "Traveller's cloak", description: 'A practical cloak, slightly worn at the hem. Aristotle has walked a great deal.', equipSlot: 'body' },
         },
@@ -242,12 +224,6 @@ export const NPC_DATA = {
         actionPoints: 1,
         appearance: 'A heavyset, broad-shouldered man with a calculating stare.',
         bio: 'Ptolemy the astronomer. Loyal to the 30 Tyrants who promised him a grand observatory. Hostile to outsiders and suspicious of philosophers in general. Strong fighter. Will attack if provoked or if he believes you threaten the Tyrants. Knows the Tyrants\' stronghold lies beyond the Acropolis. Knows their weaknesses — they are paranoid and turn on each other — but won\'t share this easily. Knows that Critias is the most dangerous Tyrant.',
-
-        initialFlags: {
-            blocking_path: true,
-            loyal_to_tyrants: true,
-            suspicious: true,
-        },
 
         initialEquipment: {
             body:  { name: 'Legionary Breastplate', visibleName: 'Legionary breastplate', description: 'A battered iron breastplate. Dented but functional.', equipSlot: 'body', actionEffect: { armor: 8 } },
