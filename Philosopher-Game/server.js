@@ -43,13 +43,13 @@ const NPC_DECISION_SCHEMA = {
                     type: 'object',
                     properties: {
                         type: { type: 'string' },
-                        message: { type: 'string' },
-                        targetId: { type: 'string' },
-                        itemId: { type: 'string' },
-                        itemIndex: { type: 'number' },
-                        name: { type: 'string' },
+                        message: { type: ['string', 'null'] },
+                        targetId: { type: ['string', 'null'] },
+                        itemId: { type: ['string', 'null'] },
+                        itemIndex: { type: ['number', 'null'] },
+                        name: { type: ['string', 'null'] },
                     },
-                    required: ['type'],
+                    required: ['type', 'message', 'targetId', 'itemId', 'itemIndex', 'name'],
                     additionalProperties: false,
                 },
                 { type: 'null' },
@@ -61,10 +61,10 @@ const NPC_DECISION_SCHEMA = {
                     type: 'object',
                     properties: {
                         type: { type: 'string' },
-                        itemIndex: { type: 'number' },
-                        slot: { type: 'string' },
+                        itemIndex: { type: ['number', 'null'] },
+                        slot: { type: ['string', 'null'] },
                     },
-                    required: ['type'],
+                    required: ['type', 'itemIndex', 'slot'],
                     additionalProperties: false,
                 },
                 { type: 'null' },
@@ -183,8 +183,9 @@ async function callOpenAI({ apiKey, model, systemPrompt, messages, maxTokens }) 
         };
     }
 
-    // Responses API: output[0].content[0].text
-    const text = data.output?.[0]?.content?.[0]?.text;
+    // Responses API: find the message item in output (may be preceded by reasoning)
+    const msgItem = data.output?.find(item => item.type === 'message');
+    const text = msgItem?.content?.[0]?.text;
     if (typeof text !== 'string') {
         throw { status: 502, message: 'Unexpected response shape from OpenAI.' };
     }

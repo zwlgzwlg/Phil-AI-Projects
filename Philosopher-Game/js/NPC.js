@@ -126,9 +126,11 @@ export default class NPC {
             }
         }
 
-        // Use item (if has any)
+        // Use item (only for items with a game-mechanical effect)
         for (let i = 0; i < this.inventory.length; i++) {
-            this.availableActions.push({ type: 'use_item', itemIndex: i, itemName: this.inventory[i].name });
+            const item = this.inventory[i];
+            if (item.unlocks || (!item.actionEffect && !item.dialogueEffect)) continue;
+            this.availableActions.push({ type: 'use_item', itemIndex: i, itemName: item.name });
         }
 
         // Special actions unique to this NPC
