@@ -85,6 +85,10 @@ export default class LLMClient {
         if (typeof text !== 'string') {
             throw new Error(`Unexpected content type "${data.content[0].type}" — expected text.`);
         }
-        return text;
+        return {
+            text,
+            usage: data.usage || null,
+            model: data.model || null,
+        };
     }
 }

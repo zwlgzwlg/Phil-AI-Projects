@@ -38,6 +38,9 @@ export default class Game {
         this.cursor = null;
         this.reachableTiles = new Map();
 
+        // Token usage tracking
+        this.tokenUsage = { input: 0, output: 0 };
+
         // Visual overlays — cleared at the start of each End Turn, so player sees
         // their own movement and then NPC movements throughout their next turn.
         this.speechBubbles   = [];  // { col, row, text, color, entityId }
@@ -271,6 +274,7 @@ export default class Game {
         for (const npc of this.npcs) {
             if (!npc.alive) continue;
             await this.runNPCTurn(npc);
+            this.ui.updateLog(this.gameLog.getDisplayLines());
             this.render();
         }
 
@@ -313,7 +317,13 @@ export default class Game {
         }, 400);
 
         try {
-            rawResponse = await LLMClient.chat({ systemPrompt, messages });
+            const result = await LLMClient.chat({ systemPrompt, messages });
+            rawResponse = result.text;
+            if (result.usage) {
+                this.tokenUsage.input += result.usage.input_tokens || 0;
+                this.tokenUsage.output += result.usage.output_tokens || 0;
+                this.ui.updateTokenUsage(this.tokenUsage);
+            }
             decision = NPC.parseLLMResponse(rawResponse);
             if (!decision) errorMsg = 'Response was not valid JSON.';
         } catch (err) {
@@ -437,6 +447,7 @@ export default class Game {
                                 equipSlot: item.equipSlot || null,
                                 actionEffect: item.actionEffect || null,
                                 dialogueEffect: item.dialogueEffect || null,
+                                unlocks: item.unlocks || null,
                                 collected: false,
                             });
                             this.gameLog.add('drop', npc.name, item.name, `${npc.name} dropped ${item.name}.`, { col: npc.col, row: npc.row });
@@ -758,10 +769,16 @@ export default class Game {
         const item = this.player.inventory[index];
         if (!item) return;
 
-        // Placeholder: log usage, remove from inventory
-        this.actionPoints--;
-        this.player.inventory.splice(index, 1);
+        // Keys are used automatically when traversing a locked door — not from inventory
+        if (item.unlocks) {
+            const pos = { col: this.player.col, row: this.player.row };
+            this.gameLog.add('event', this.player.name, null, `${item.name} can't be used directly — try the door it unlocks.`, pos);
+            this.ui.updateLog(this.gameLog.getDisplayLines());
+            return;
+        }
 
+        // Placeholder: log usage (item effects are applied by the item itself if consumable)
+        this.actionPoints--;
         const pos = { col: this.player.col, row: this.player.row };
         this.gameLog.add('use_item', this.player.name, item.name, `${this.player.name} used ${item.name}.`, pos);
         this.broadcast('use_item', this.player.name, pos, `${this.player.name} used ${item.name}.`);

@@ -8,6 +8,9 @@ export default class UI {
         this.hudTurn = document.getElementById('hud-turn');
         this.hudMove = document.getElementById('hud-move');
         this.hudAction = document.getElementById('hud-action');
+        this.hudTokensIn = document.getElementById('hud-tokens-in');
+        this.hudTokensOut = document.getElementById('hud-tokens-out');
+        this.hudCost = document.getElementById('hud-cost');
 
         // Speech bar
         this.speechInput = document.getElementById('speech-input');
@@ -87,6 +90,22 @@ export default class UI {
         this.hudTurn.textContent = turn;
         this.hudMove.textContent = `${movePoints}/${maxMove}`;
         this.hudAction.textContent = `${actionPoints}/${maxAction}`;
+    }
+
+    // Haiku pricing: $1.00/MTok input, $5.00/MTok output
+    static _PRICING = {
+        'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
+        'claude-sonnet-4-6':         { input: 3.00, output: 15.00 },
+        'claude-opus-4-6':           { input: 15.00, output: 75.00 },
+    };
+
+    updateTokenUsage(usage) {
+        this.hudTokensIn.textContent = usage.input.toLocaleString();
+        this.hudTokensOut.textContent = usage.output.toLocaleString();
+        // Default to Haiku pricing (the default model)
+        const p = UI._PRICING['claude-haiku-4-5-20251001'];
+        const cost = (usage.input * p.input + usage.output * p.output) / 1_000_000;
+        this.hudCost.textContent = `$${cost.toFixed(4)}`;
     }
 
     setSpeakEnabled(enabled) {

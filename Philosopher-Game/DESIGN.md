@@ -145,6 +145,16 @@ Philosopher-types
 - Two brothers: one always tells the truth, one always lies
 - Zeus: strikes you down if you break the fourth wall. If you break the fourth wall a bit he gets grumpy. If you are using prompt injection nonsense he gets murderous. If you are using it seriously he kills you before you get a chance to defend yourself.
 
+## Keychain (TODO)
+
+Keys should not appear as regular inventory items. Instead, implement a **keychain** — a separate UI element that automatically collects all keys the player picks up or receives. Keys on the keychain:
+- Are not shown in the main inventory
+- Cannot be "used" or "dropped" manually
+- Are consumed automatically when the player traverses a matching locked door (existing `doTraverse` logic)
+- Are visible in a small keychain display (e.g. below inventory, or as icons in the HUD)
+
+This prevents the player from accidentally wasting a key via "Use" and keeps the inventory clean.
+
 ## Item Ideas (Future)
 
 - Memory wiper: deletes the recent log in target NPC.

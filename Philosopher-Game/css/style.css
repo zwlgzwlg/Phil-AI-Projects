@@ -27,6 +27,7 @@ body {
 #game-wrapper {
     display: flex;
     flex-direction: column;
+    max-width: fit-content;
 }
 
 #top-bar {
@@ -66,6 +67,10 @@ body {
 #hud-zone { color: #88aaff; }
 #hud-move { color: #66dd66; }
 #hud-action { color: #ddaa55; }
+#hud-tokens { margin-left: 8px; padding-left: 12px; border-left: 1px solid #444; }
+#hud-tokens-in { color: #88ccaa; }
+#hud-tokens-out { color: #cc88aa; }
+#hud-cost { color: #e8a040; }
 
 #main-area {
     display: flex;
@@ -273,6 +278,9 @@ body {
 .log-line {
     color: #999;
     margin-bottom: 2px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .log-speech {
