@@ -20,6 +20,9 @@ export default class NPC {
         // --- Bio (permanent traits) ---
         this.bio = {
             name: data.name,
+            // appearance: brief visual description seen at a glance (used in hover pane + LLM surroundings)
+            appearance: data.appearance || data.name,
+            // description: full private bio for the LLM system prompt
             description: data.bio,
             baseDamage: data.baseDamage ?? 8,
             maxHp: data.hp,
@@ -253,6 +256,7 @@ export default class NPC {
         // Player
         const pDist = Math.abs(this.col - gameState.player.col) + Math.abs(this.row - gameState.player.row);
         if (pDist <= this.bio.hearingRange) {
+            const playerInfo = gameState.player.getPublicInfo?.() ?? {};
             this.nearbyEntities.push({
                 type: 'player',
                 name: gameState.player.name,
@@ -261,6 +265,8 @@ export default class NPC {
                 distance: pDist,
                 hp: gameState.player.hp,
                 maxHp: gameState.player.maxHp,
+                appearance: playerInfo.description || gameState.player.description,
+                visibleEquipment: playerInfo.visibleEquipment,
             });
             this.playerThreatLevel = this._assessThreat(gameState.player);
         }
@@ -270,6 +276,7 @@ export default class NPC {
             if (other.id === this.id || !other.alive) continue;
             const dist = Math.abs(this.col - other.col) + Math.abs(this.row - other.row);
             if (dist <= this.bio.hearingRange) {
+                const pubInfo = other.getPublicInfo();
                 this.nearbyEntities.push({
                     type: 'npc',
                     name: other.name,
@@ -278,6 +285,8 @@ export default class NPC {
                     distance: dist,
                     hp: other.conditions.hp,
                     maxHp: other.bio.maxHp,
+                    appearance: pubInfo.description,
+                    visibleEquipment: pubInfo.visibleEquipment,
                 });
             }
         }
@@ -355,12 +364,11 @@ export default class NPC {
         const visibleEquipment = {};
         for (const slot of ['head', 'body', 'feet', 'hands']) {
             const item = this.equipment[slot];
-            // Show visibleName if set, otherwise fall back to name, otherwise empty label
             visibleEquipment[slot] = item ? (item.visibleName || item.name) : EMPTY_LABELS[slot];
         }
         return {
             name: this.name,
-            description: this.bio.description,
+            description: this.bio.appearance,   // brief glance description only
             hp: `${this.conditions.hp}/${this.bio.maxHp}`,
             alive: this.alive,
             visibleEquipment,

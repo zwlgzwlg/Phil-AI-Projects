@@ -320,8 +320,7 @@ body {
 
 #info-panel {
     padding: 8px 10px;
-    min-height: 80px;
-    max-height: 160px;
+    height: 120px;
     overflow-y: auto;
     font-family: monospace;
     font-size: 12px;
@@ -549,8 +548,11 @@ body {
 
 /* Scrollbars */
 #log-panel::-webkit-scrollbar,
-#inventory-list::-webkit-scrollbar { width: 5px; }
+#inventory-list::-webkit-scrollbar,
+#info-panel::-webkit-scrollbar { width: 5px; }
 #log-panel::-webkit-scrollbar-track,
-#inventory-list::-webkit-scrollbar-track { background: transparent; }
+#inventory-list::-webkit-scrollbar-track,
+#info-panel::-webkit-scrollbar-track { background: transparent; }
 #log-panel::-webkit-scrollbar-thumb,
-#inventory-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+#inventory-list::-webkit-scrollbar-thumb,
+#info-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }

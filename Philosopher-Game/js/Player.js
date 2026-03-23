@@ -68,6 +68,23 @@ export default class Player {
         return this.inventory.splice(index, 1)[0];
     }
 
+    // Visible public info — what an observer sees at a glance
+    getPublicInfo() {
+        const EMPTY_LABELS = { head: 'bare head', body: 'bare body', feet: 'bare feet', hands: 'empty handed' };
+        const visibleEquipment = {};
+        for (const slot of ['head', 'body', 'feet', 'hands']) {
+            const item = this.equipment[slot];
+            visibleEquipment[slot] = item ? (item.visibleName || item.name) : EMPTY_LABELS[slot];
+        }
+        return {
+            name: this.name,
+            description: this.description,
+            hp: `${this.hp}/${this.maxHp}`,
+            alive: this.isAlive(),
+            visibleEquipment,
+        };
+    }
+
     hasItem(id) {
         return this.inventory.some(i => i.id === id);
     }

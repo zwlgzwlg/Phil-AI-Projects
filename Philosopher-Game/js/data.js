@@ -99,6 +99,7 @@ export const NPC_DATA = {
         movePoints: 3,
         actionPoints: 1,
         hearingRange: 6,
+        appearance: 'A dignified Roman orator in an expensive toga.',
         bio: 'Marcus Tullius Cicero, Roman statesman and orator. A wise and eloquent advisor who believes there are two forms of conflict: one proceeds by debate, the other by force. He always prefers the former. Friendly and eager to help newcomers. Knows the layout of the Agora well. Has heard that Zeno blocks the passage to the Academy with riddles, and that Ptolemy guards the Acropolis for the Tyrants. Will offer advice freely if asked.',
 
         // Conditions (initial temporary traits)
@@ -131,6 +132,7 @@ export const NPC_DATA = {
         movePoints: 2,  // Zeno is slow (ironic, given his paradoxes)
         actionPoints: 1,
         hearingRange: 6,
+        appearance: 'A wiry Greek with an intense gaze and unhurried movements.',
         bio: 'Zeno of Elea, master of paradoxes. Obsessed with riddles about motion and infinity. He guards the bridge to the Academy and will not move until his riddle is solved. Stubborn but fair — if you solve his puzzle, he respects you. Knows that Ptolemy guards the Acropolis. Has heard the Tyrants fear a wandering philosopher. Knows a secret: the Tyrants cannot count past thirty.',
 
         initialFlags: {
@@ -161,6 +163,7 @@ export const NPC_DATA = {
         movePoints: 3,
         actionPoints: 1,
         hearingRange: 5,
+        appearance: 'A heavyset man in partial armour, clutching a rolled star chart.',
         bio: 'Ptolemy the astronomer. Loyal to the 30 Tyrants who promised him a grand observatory. Hostile to outsiders and suspicious of philosophers in general. Strong fighter. Will attack if provoked or if he believes you threaten the Tyrants. Knows the Tyrants\' stronghold lies beyond the Acropolis. Knows their weaknesses — they are paranoid and turn on each other — but won\'t share this easily. Knows that Critias is the most dangerous Tyrant.',
 
         initialFlags: {

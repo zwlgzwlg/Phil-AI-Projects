@@ -410,10 +410,7 @@ export default class Game {
         // Player tile
         if (col === this.player.col && row === this.player.row) {
             this.ui.updateInfoPane({
-                name: this.player.name,
-                description: this.player.description,
-                hp: `${this.player.hp}/${this.player.maxHp}`,
-                alive: this.player.isAlive(),
+                ...this.player.getPublicInfo(),
                 damage: this.player.getDamage(),
                 armor: this.player.getArmor(),
                 equipment: this.player.equipment,
@@ -461,36 +458,55 @@ export default class Game {
     buildContextOptions(col, row) {
         const options = [];
         const hasAction = this.actionPoints > 0;
-        const inMelee = this.isInMeleeRange(col, row);
+        const dist = Math.abs(this.player.col - col) + Math.abs(this.player.row - row);
+        const inMelee = dist <= MELEE_RANGE;
         const onPlayer = (col === this.player.col && row === this.player.row);
 
-        // NPC on this tile?
+        // --- NPC on this tile ---
         const npc = this.getEntityAt(col, row);
-        if (npc && npc.alive && inMelee) {
+        if (npc) {
+            // Attack — always first, greyed if out of range or no action
+            const canAttack = npc.alive && inMelee && hasAction;
+            const tooFar = npc.alive && !inMelee;
             options.push({
-                label: `Attack ${npc.name}`,
-                disabled: !hasAction,
+                label: tooFar ? `Attack ${npc.name}  (too far)` : `Attack ${npc.name}`,
+                disabled: !canAttack,
                 action: () => this.doAttack(npc),
             });
+
+            // Inventory items that can be used on an entity
+            for (let i = 0; i < this.player.inventory.length; i++) {
+                const invItem = this.player.inventory[i];
+                if (!invItem.onEntityUse) continue;
+                const label = invItem.onEntityUse.label
+                    ? `${invItem.onEntityUse.label} ${npc.name}`
+                    : `Use ${invItem.name} on ${npc.name}`;
+                const canUse = inMelee && hasAction;
+                options.push({
+                    label: !inMelee ? `${label}  (too far)` : label,
+                    disabled: !canUse,
+                    action: () => this.handleItemOnEntity(i, npc),
+                });
+            }
         }
 
-        // Item on this tile?
+        // --- Item on this tile ---
         const item = this.getItemAt(col, row);
-        if (item && onPlayer) {
+        if (item) {
+            const canPickup = inMelee && hasAction;
             options.push({
-                label: `Pick up ${item.name}`,
-                disabled: !hasAction,
+                label: !inMelee ? `Pick up ${item.name}  (too far)` : `Pick up ${item.name}`,
+                disabled: !canPickup,
                 action: () => this.doPickup(item),
             });
         }
 
-        // Door on this tile?
+        // --- Door on player's tile ---
         if (this.grid.isDoor(col, row) && onPlayer) {
             const doorTarget = this.grid.getDoorTarget(col, row);
             if (doorTarget) {
-                const targetName = ZONES[doorTarget.zone].name;
                 options.push({
-                    label: `Enter ${targetName}`,
+                    label: `Enter ${ZONES[doorTarget.zone].name}`,
                     action: () => this.doDoor(doorTarget),
                 });
             }
@@ -501,6 +517,19 @@ export default class Game {
         }
 
         return options;
+    }
+
+    // Placeholder for inventory-item-on-entity actions (e.g. mind reader, poison dart)
+    handleItemOnEntity(itemIndex, targetNpc) {
+        const item = this.player.inventory[itemIndex];
+        if (!item?.onEntityUse || this.actionPoints <= 0) return;
+        this.actionPoints--;
+        const pos = { col: this.player.col, row: this.player.row };
+        this.gameLog.add('use_item', this.player.name, item.name, `${this.player.name} used ${item.name} on ${targetNpc.name}.`, pos);
+        this.broadcast('use_item', this.player.name, pos, `${this.player.name} used ${item.name} on ${targetNpc.name}.`);
+        // item.onEntityUse.apply(targetNpc) — to be implemented per item
+        this.ui.updateLog(this.gameLog.getDisplayLines());
+        this.refreshTurnState();
     }
 
     // --- Actions ---

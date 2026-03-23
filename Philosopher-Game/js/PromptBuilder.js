@@ -64,12 +64,15 @@ ${worldInfo}
             lines.push('Nothing notable nearby.');
         } else {
             for (const e of ctx.nearbyEntities) {
-                if (e.type === 'player') {
-                    lines.push(`- **${e.name}** (player) at (${e.col}, ${e.row}), distance ${e.distance}, HP ${e.hp}/${e.maxHp}`);
-                } else if (e.type === 'npc') {
-                    lines.push(`- **${e.name}** (npc) at (${e.col}, ${e.row}), distance ${e.distance}, HP ${e.hp}/${e.maxHp}`);
+                if (e.type === 'player' || e.type === 'npc') {
+                    const eqParts = e.visibleEquipment
+                        ? Object.values(e.visibleEquipment).join(', ')
+                        : null;
+                    const appearStr = e.appearance ? ` "${e.appearance}"` : '';
+                    const eqStr = eqParts ? ` Visible equipment: [${eqParts}].` : '';
+                    lines.push(`- **${e.name}** (${e.type}) at (${e.col}, ${e.row}), dist ${e.distance}, HP ${e.hp}/${e.maxHp}.${appearStr}${eqStr}`);
                 } else if (e.type === 'item') {
-                    lines.push(`- **${e.name}** (item) at (${e.col}, ${e.row}), distance ${e.distance}`);
+                    lines.push(`- **${e.name}** (item) at (${e.col}, ${e.row}), dist ${e.distance}`);
                 }
             }
         }
