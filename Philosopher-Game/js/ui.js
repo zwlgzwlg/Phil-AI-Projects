@@ -182,28 +182,38 @@ export default class UI {
             p.appendChild(desc);
         }
 
-        // Visible equipment (NPC world hover)
+        // Equipment slots — each on its own line
+        // visibleEquipment: used for world hover (NPC/other entity) — already resolved to display strings
+        // equipment: used for player self-hover — raw item objects
+        const SLOT_ROWS = [
+            { key: 'head',  label: 'Head'  },
+            { key: 'body',  label: 'Body'  },
+            { key: 'feet',  label: 'Feet'  },
+            { key: 'hands', label: 'Hands' },
+        ];
+
         if (info.visibleEquipment) {
             const eq = info.visibleEquipment;
-            const div = document.createElement('div');
-            div.classList.add('info-eq-list');
-            div.textContent = [eq.head, eq.body, eq.feet, eq.hands].join('  ·  ');
-            p.appendChild(div);
+            for (const { key, label } of SLOT_ROWS) {
+                const row = document.createElement('div');
+                row.classList.add('info-eq-row');
+                const isEmpty = !eq[key] || eq[key].startsWith('bare') || eq[key] === 'empty handed';
+                row.innerHTML = `<span class="info-eq-label">${label}</span><span class="info-eq-item${isEmpty ? ' info-eq-empty' : ''}">${eq[key]}</span>`;
+                p.appendChild(row);
+            }
         }
 
-        // Player equipment (self hover — full names)
         if (info.equipment) {
             const eq = info.equipment;
-            const parts = [
-                eq.head  ? eq.head.name  : 'bare head',
-                eq.body  ? eq.body.name  : 'bare body',
-                eq.feet  ? eq.feet.name  : 'bare feet',
-                eq.hands ? eq.hands.name : 'empty handed',
-            ];
-            const div = document.createElement('div');
-            div.classList.add('info-eq-list');
-            div.textContent = parts.join('  ·  ');
-            p.appendChild(div);
+            const EMPTY = { head: 'bare head', body: 'bare body', feet: 'bare feet', hands: 'empty handed' };
+            for (const { key, label } of SLOT_ROWS) {
+                const item = eq[key];
+                const text = item ? item.name : EMPTY[key];
+                const row = document.createElement('div');
+                row.classList.add('info-eq-row');
+                row.innerHTML = `<span class="info-eq-label">${label}</span><span class="info-eq-item${item ? '' : ' info-eq-empty'}">${text}</span>`;
+                p.appendChild(row);
+            }
         }
 
         // Stats — only shown for items in inventory/equipment (not world hover)

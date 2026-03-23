@@ -99,12 +99,17 @@ export const NPC_DATA = {
         movePoints: 3,
         actionPoints: 1,
         hearingRange: 6,
-        appearance: 'A dignified Roman orator in an expensive toga.',
+        appearance: 'A dignified Roman orator.',
         bio: 'Marcus Tullius Cicero, Roman statesman and orator. A wise and eloquent advisor who believes there are two forms of conflict: one proceeds by debate, the other by force. He always prefers the former. Friendly and eager to help newcomers. Knows the layout of the Agora well. Has heard that Zeno blocks the passage to the Academy with riddles, and that Ptolemy guards the Acropolis for the Tyrants. Will offer advice freely if asked.',
 
         // Conditions (initial temporary traits)
         initialFlags: {
             advisor: true,
+        },
+
+        // Starting equipment
+        initialEquipment: {
+            body: { name: 'Senatorial Toga', visibleName: 'Senatorial Toga', description: 'A pristine white toga marking its wearer as a senator of Rome.', equipSlot: 'body' },
         },
 
         // Starting inventory
@@ -132,12 +137,17 @@ export const NPC_DATA = {
         movePoints: 2,  // Zeno is slow (ironic, given his paradoxes)
         actionPoints: 1,
         hearingRange: 6,
-        appearance: 'A wiry Greek with an intense gaze and unhurried movements.',
+        appearance: 'A wiry Greek with an intense, unsettling gaze.',
         bio: 'Zeno of Elea, master of paradoxes. Obsessed with riddles about motion and infinity. He guards the bridge to the Academy and will not move until his riddle is solved. Stubborn but fair — if you solve his puzzle, he respects you. Knows that Ptolemy guards the Acropolis. Has heard the Tyrants fear a wandering philosopher. Knows a secret: the Tyrants cannot count past thirty.',
 
         initialFlags: {
             blocking_path: true,
             riddle_solved: false,
+        },
+
+        initialEquipment: {
+            body: { name: "Philosopher's Himation", visibleName: "Worn himation", description: 'A coarse woollen cloak, worn with the indifference of a man who thinks clothing is an illusion.', equipSlot: 'body' },
+            feet: { name: 'Old Sandals', visibleName: 'Old sandals', description: 'Battered leather sandals, much walked-in.', equipSlot: 'feet' },
         },
 
         items: [
@@ -163,7 +173,7 @@ export const NPC_DATA = {
         movePoints: 3,
         actionPoints: 1,
         hearingRange: 5,
-        appearance: 'A heavyset man in partial armour, clutching a rolled star chart.',
+        appearance: 'A heavyset, broad-shouldered man with a calculating stare.',
         bio: 'Ptolemy the astronomer. Loyal to the 30 Tyrants who promised him a grand observatory. Hostile to outsiders and suspicious of philosophers in general. Strong fighter. Will attack if provoked or if he believes you threaten the Tyrants. Knows the Tyrants\' stronghold lies beyond the Acropolis. Knows their weaknesses — they are paranoid and turn on each other — but won\'t share this easily. Knows that Critias is the most dangerous Tyrant.',
 
         initialFlags: {
@@ -172,9 +182,13 @@ export const NPC_DATA = {
             suspicious: true,
         },
 
+        initialEquipment: {
+            body:  { name: 'Legionary Breastplate', visibleName: 'Legionary breastplate', description: 'A battered iron breastplate. Dented but functional.', equipSlot: 'body', actionEffect: { armor: 8 } },
+            hands: { name: 'Iron Spear', visibleName: 'Iron spear', description: 'A sturdy iron-tipped spear. Ptolemy is not merely a scholar.', equipSlot: 'hands' },
+        },
+
         items: [
             { name: 'Star Chart', description: 'A detailed chart of the heavens. Ptolemy uses it to justify his geocentric model.' },
-            { name: 'Iron Spear', description: 'A sturdy spear. Ptolemy is not just a scholar.' },
         ],
 
         dialogue: [

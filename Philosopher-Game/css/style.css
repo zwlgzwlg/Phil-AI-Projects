@@ -381,9 +381,24 @@ body {
     line-height: 1.4;
 }
 
-.info-eq-list {
-    color: #778877;
+.info-eq-row {
+    display: flex;
+    gap: 6px;
     font-size: 11px;
+    line-height: 1.4;
+}
+
+.info-eq-label {
+    color: #555;
+    min-width: 36px;
+}
+
+.info-eq-item {
+    color: #99bb88;
+}
+
+.info-eq-item.info-eq-empty {
+    color: #3a3a3a;
 }
 
 .info-stats {
