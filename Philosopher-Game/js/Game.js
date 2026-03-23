@@ -5,9 +5,10 @@ import GameLog from './GameLog.js';
 import Renderer from './Renderer.js';
 import UI from './ui.js';
 import DebugLog from './DebugLog.js';
+import LLMClient from './LLMClient.js';
 import { ZONES, NPC_DATA, ITEM_DATA } from './data.js';
 
-const TILE_SIZE = 40;
+const TILE_SIZE = 56;
 const MAX_MOVE_POINTS = 4;
 const MAX_ACTION_POINTS = 1;
 const MELEE_RANGE = 2;
@@ -29,8 +30,18 @@ export default class Game {
         // Phases: 'player_turn', 'ai', 'gameover'
         this.phase = 'player_turn';
 
+        // Thinking animation state (set while waiting for LLM response)
+        this.thinkingNpc = null;   // { col, row, color }
+        this._thinkingDots = 0;
+        this._thinkingInterval = null;
+
         this.cursor = null;
         this.reachableTiles = new Map();
+
+        // Visual overlays — cleared at the start of each End Turn, so player sees
+        // their own movement and then NPC movements throughout their next turn.
+        this.speechBubbles   = [];  // { col, row, text, color, entityId }
+        this.movementTrails  = [];  // { fromCol, fromRow, toCol, toRow, color }
 
         this.loadZone(0);
 
@@ -61,6 +72,16 @@ export default class Game {
         canvas.addEventListener('mouseleave', () => {
             this._hoverKey = null;
             this.ui.clearInfoPane();
+        });
+
+        // Tab: end turn (skip when any input or button is focused)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                const tag = document.activeElement?.tagName;
+                if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA') return;
+                e.preventDefault();
+                if (this.phase === 'player_turn') this.endPlayerTurn();
+            }
         });
 
         this.gameLog.add('door', this.player.name, ZONES[0].name, `${this.player.name} enters the ${ZONES[0].name}.`);
@@ -106,9 +127,15 @@ export default class Game {
                     equipSlot: data.equipSlot || null,
                     actionEffect: data.actionEffect,
                     dialogueEffect: data.dialogueEffect,
+                    unlocks: data.unlocks || null,
                     collected: false,
                 });
             }
+        }
+
+        this.doors = [];
+        for (const doorData of (zoneData.doors || [])) {
+            this.doors.push({ ...doorData });
         }
 
         this.phase = 'player_turn';
@@ -121,7 +148,17 @@ export default class Game {
         for (const npc of this.npcs) {
             if (npc.alive) set.add(`${npc.col},${npc.row}`);
         }
+        for (const item of this.items) {
+            if (!item.collected) set.add(`${item.col},${item.row}`);
+        }
+        for (const door of this.doors) {
+            set.add(`${door.col},${door.row}`);
+        }
         return set;
+    }
+
+    getDoorAt(col, row) {
+        return this.doors.find(d => d.col === col && d.row === row) || null;
     }
 
     computeReachable() {
@@ -138,7 +175,7 @@ export default class Game {
 
     getEntityAt(col, row) {
         for (const npc of this.npcs) {
-            if (npc.alive && npc.col === col && npc.row === row) return npc;
+            if (npc.col === col && npc.row === row) return npc;
         }
         return null;
     }
@@ -211,14 +248,21 @@ export default class Game {
         this.gameLog.add('speak', this.player.name, null, text, pos);
         this.broadcast('speak', this.player.name, pos, `${this.player.name} says: "${text}"`);
 
+        // Show speech bubble above player
+        this._setSpeechBubble('player', this.player.col, this.player.row, text, this.player.color);
+
         this.ui.updateLog(this.gameLog.getDisplayLines());
         this.refreshTurnState();
     }
 
     // --- End turn ---
 
-    endPlayerTurn() {
+    async endPlayerTurn() {
         if (this.phase !== 'player_turn') return;
+
+        // Clear player's trails/bubbles from their turn; NPCs will add fresh ones below
+        this.speechBubbles  = [];
+        this.movementTrails = [];
 
         this.phase = 'ai';
         this.ui.disableAllActions();
@@ -226,7 +270,8 @@ export default class Game {
 
         for (const npc of this.npcs) {
             if (!npc.alive) continue;
-            this.runNPCTurn(npc);
+            await this.runNPCTurn(npc);
+            this.render();
         }
 
         this.turn++;
@@ -242,7 +287,7 @@ export default class Game {
         }
     }
 
-    runNPCTurn(npc) {
+    async runNPCTurn(npc) {
         // Set up turn: compute reachable tiles and available actions
         const occupied = this.getOccupiedSet();
         occupied.delete(`${npc.col},${npc.row}`);
@@ -251,21 +296,43 @@ export default class Game {
         npc.computeAvailableActions(this.getGameState());
         npc.computeSurroundings(this.getGameState());
 
-        // Build the turn prompt (for debug logging even in placeholder mode)
         const turnContext = this.getGameState();
-        const { messages } = npc.buildLLMMessages(turnContext);
+        const { systemPrompt, messages } = npc.buildLLMMessages(turnContext);
         const turnPrompt = messages[messages.length - 1].content;
 
-        // Ask NPC what to do (placeholder AI; later: LLM API call)
-        const decision = npc.decideAction(turnContext);
+        let decision = null;
+        let rawResponse = null;
+        let errorMsg = null;
 
-        // Debug log: record what would be sent to LLM and what was decided
-        const rawResponse = JSON.stringify(decision, null, 2);
-        npc.recordTurn(turnPrompt, rawResponse);
+        // Show thinking animation while waiting for LLM
+        this.thinkingNpc = { col: npc.col, row: npc.row, color: npc.color };
+        this._thinkingDots = 0;
+        this._thinkingInterval = setInterval(() => {
+            this._thinkingDots = (this._thinkingDots + 1) % 3;
+            this.render();
+        }, 400);
+
+        try {
+            rawResponse = await LLMClient.chat({ systemPrompt, messages });
+            decision = NPC.parseLLMResponse(rawResponse);
+            if (!decision) errorMsg = 'Response was not valid JSON.';
+        } catch (err) {
+            errorMsg = err.message;
+            // Fall back to placeholder AI so the turn isn't just skipped
+            decision = npc.decideAction(turnContext);
+            rawResponse = JSON.stringify(decision, null, 2);
+        } finally {
+            clearInterval(this._thinkingInterval);
+            this._thinkingInterval = null;
+            this.thinkingNpc = null;
+        }
+
+        npc.recordTurn(turnPrompt, rawResponse ?? '');
         this.debugLog.recordTurn(npc.id, this.turn, {
             turnPrompt,
             rawResponse,
             parsedDecision: decision,
+            error: errorMsg,
         });
 
         // Null decision means invalid JSON — skip this NPC's turn
@@ -285,7 +352,9 @@ export default class Game {
                 c => c.col === decision.moveTo.col && c.row === decision.moveTo.row
             );
             if (valid) {
+                const fromCol = npc.col, fromRow = npc.row;
                 npc.moveTo(decision.moveTo.col, decision.moveTo.row);
+                this.movementTrails.push({ fromCol, fromRow, toCol: npc.col, toRow: npc.row, color: npc.color });
                 this.gameLog.add('move', npc.name, null, `${npc.name} moved.`, { col: npc.col, row: npc.row });
             }
         }
@@ -304,6 +373,7 @@ export default class Game {
                     const pos = { col: npc.col, row: npc.row };
                     this.gameLog.add('speak', npc.name, null, msg, pos);
                     this.broadcast('speak', npc.name, pos, `${npc.name} says: "${msg}"`);
+                    this._setSpeechBubble(npc.id, npc.col, npc.row, msg, npc.color);
                     break;
                 }
                 case 'attack': {
@@ -311,7 +381,7 @@ export default class Game {
                     if (targetId === 'player') {
                         const dist = Math.abs(this.player.col - npc.col) + Math.abs(this.player.row - npc.row);
                         if (dist <= MELEE_RANGE) {
-                            const dmg = this.player.takeDamage(npc.bio.baseDamage);
+                            const dmg = this.player.takeDamage(npc.getDamage());
                             this.gameLog.add('attack', npc.name, this.player.name, `${dmg} damage. ${this.player.name} HP: ${this.player.hp}/${this.player.maxHp}`, { col: npc.col, row: npc.row });
                             this.broadcast('attack', npc.name, { col: npc.col, row: npc.row }, `${npc.name} attacked ${this.player.name} for ${dmg} damage.`);
                         }
@@ -321,7 +391,7 @@ export default class Game {
                         if (targetNpc && targetNpc.alive) {
                             const dist = Math.abs(targetNpc.col - npc.col) + Math.abs(targetNpc.row - npc.row);
                             if (dist <= MELEE_RANGE) {
-                                const dmg = targetNpc.takeDamage(npc.bio.baseDamage);
+                                const dmg = targetNpc.takeDamage(npc.getDamage());
                                 this.gameLog.add('attack', npc.name, targetNpc.name, `${dmg} damage. ${targetNpc.name} HP: ${targetNpc.conditions.hp}/${targetNpc.bio.maxHp}`, { col: npc.col, row: npc.row });
                                 this.broadcast('attack', npc.name, { col: npc.col, row: npc.row }, `${npc.name} attacked ${targetNpc.name} for ${dmg} damage.`);
                                 if (!targetNpc.alive) {
@@ -386,7 +456,9 @@ export default class Game {
         const key = `${col},${row}`;
         const target = this.reachableTiles.get(key);
         if (target && this.movePoints > 0 && target.dist <= this.movePoints) {
+            const fromCol = this.player.col, fromRow = this.player.row;
             this.player.moveTo(col, row);
+            this.movementTrails.push({ fromCol, fromRow, toCol: col, toRow: row, color: this.player.color });
             this.movePoints -= target.dist;
             this.gameLog.add('move', this.player.name, null, `${this.player.name} moved (${target.dist} steps).`, { col, row });
             this.broadcast('move', this.player.name, { col, row }, `${this.player.name} moved.`);
@@ -418,10 +490,22 @@ export default class Game {
             return;
         }
 
-        // NPC
+        // NPC (alive or dead)
         const npc = this.getEntityAt(col, row);
         if (npc) {
-            this.ui.updateInfoPane(npc.getPublicInfo());
+            if (npc.alive) {
+                this.ui.updateInfoPane(npc.getPublicInfo());
+            } else {
+                const lootable = [...npc.inventory, ...Object.values(npc.equipment).filter(Boolean)];
+                this.ui.updateInfoPane({
+                    name: `Corpse of ${npc.name}`,
+                    description: lootable.length > 0
+                        ? `Carrying: ${lootable.map(i => i.name).join(', ')}.`
+                        : 'Nothing to take.',
+                    alive: false,
+                    worldItem: true,
+                });
+            }
             return;
         }
 
@@ -432,6 +516,17 @@ export default class Game {
                 name: item.visibleName || item.name,
                 description: item.visibleDescription || item.description,
                 equipSlot: item.equipSlot || null,
+                worldItem: true,
+            });
+            return;
+        }
+
+        // Door entity
+        const door = this.getDoorAt(col, row);
+        if (door) {
+            this.ui.updateInfoPane({
+                name: 'Door',
+                description: door.description || null,
                 worldItem: true,
             });
             return;
@@ -460,56 +555,74 @@ export default class Game {
         const hasAction = this.actionPoints > 0;
         const dist = Math.abs(this.player.col - col) + Math.abs(this.player.row - row);
         const inMelee = dist <= MELEE_RANGE;
-        const onPlayer = (col === this.player.col && row === this.player.row);
 
         // --- NPC on this tile ---
         const npc = this.getEntityAt(col, row);
         if (npc) {
-            // Attack — always first, greyed if out of range or no action
-            const canAttack = npc.alive && inMelee && hasAction;
-            const tooFar = npc.alive && !inMelee;
-            options.push({
-                label: tooFar ? `Attack ${npc.name}  (too far)` : `Attack ${npc.name}`,
-                disabled: !canAttack,
-                action: () => this.doAttack(npc),
-            });
-
-            // Inventory items that can be used on an entity
-            for (let i = 0; i < this.player.inventory.length; i++) {
-                const invItem = this.player.inventory[i];
-                if (!invItem.onEntityUse) continue;
-                const label = invItem.onEntityUse.label
-                    ? `${invItem.onEntityUse.label} ${npc.name}`
-                    : `Use ${invItem.name} on ${npc.name}`;
-                const canUse = inMelee && hasAction;
+            if (npc.alive) {
+                // Attack — always first, greyed if out of range or no action
+                const canAttack = inMelee && hasAction;
                 options.push({
-                    label: !inMelee ? `${label}  (too far)` : label,
-                    disabled: !canUse,
-                    action: () => this.handleItemOnEntity(i, npc),
+                    label: !inMelee ? `Attack ${npc.name}  (too far)` : `Attack ${npc.name}`,
+                    disabled: !canAttack,
+                    action: () => this.doAttack(npc),
                 });
+
+                // Inventory items that can be used on an entity
+                for (let i = 0; i < this.player.inventory.length; i++) {
+                    const invItem = this.player.inventory[i];
+                    if (!invItem.onEntityUse) continue;
+                    const label = invItem.onEntityUse.label
+                        ? `${invItem.onEntityUse.label} ${npc.name}`
+                        : `Use ${invItem.name} on ${npc.name}`;
+                    const canUse = inMelee && hasAction;
+                    options.push({
+                        label: !inMelee ? `${label}  (too far)` : label,
+                        disabled: !canUse,
+                        action: () => this.handleItemOnEntity(i, npc),
+                    });
+                }
+            } else {
+                // Loot dead body
+                const lootable = [...npc.inventory];
+                for (const [slot, item] of Object.entries(npc.equipment)) {
+                    if (item) lootable.push({ ...item, _fromSlot: slot });
+                }
+                if (lootable.length === 0) {
+                    options.push({ label: `${npc.name}'s body (nothing to take)`, disabled: true, action: () => {} });
+                } else {
+                    for (const lootItem of lootable) {
+                        const canLoot = inMelee && hasAction;
+                        options.push({
+                            label: !inMelee ? `Take ${lootItem.name}  (too far)` : `Take ${lootItem.name}`,
+                            disabled: !canLoot,
+                            action: () => this.doLootNpc(npc, lootItem),
+                        });
+                    }
+                }
             }
         }
 
         // --- Item on this tile ---
         const item = this.getItemAt(col, row);
         if (item) {
+            const displayName = item.visibleName || item.name;
             const canPickup = inMelee && hasAction;
             options.push({
-                label: !inMelee ? `Pick up ${item.name}  (too far)` : `Pick up ${item.name}`,
+                label: !inMelee ? `Pick up ${displayName}  (too far)` : `Pick up ${displayName}`,
                 disabled: !canPickup,
                 action: () => this.doPickup(item),
             });
         }
 
-        // --- Door on player's tile ---
-        if (this.grid.isDoor(col, row) && onPlayer) {
-            const doorTarget = this.grid.getDoorTarget(col, row);
-            if (doorTarget) {
-                options.push({
-                    label: `Enter ${ZONES[doorTarget.zone].name}`,
-                    action: () => this.doDoor(doorTarget),
-                });
-            }
+        // --- Door entity on this tile ---
+        const door = this.getDoorAt(col, row);
+        if (door) {
+            options.push({
+                label: !inMelee ? 'Traverse  (too far)' : 'Traverse',
+                disabled: !inMelee,
+                action: () => this.doTraverse(door),
+            });
         }
 
         if (options.length > 0) {
@@ -538,8 +651,7 @@ export default class Game {
         if (this.actionPoints <= 0) return;
         this.actionPoints--;
 
-        const dmg = this.player.getDamage();
-        npc.takeDamage(dmg);
+        const dmg = npc.takeDamage(this.player.getDamage());
         const pos = { col: this.player.col, row: this.player.row };
 
         this.gameLog.add('attack', this.player.name, npc.name, `${dmg} damage. ${npc.name} HP: ${npc.conditions.hp}/${npc.bio.maxHp}`, pos);
@@ -550,6 +662,28 @@ export default class Game {
             this.broadcast('kill', this.player.name, pos, `${this.player.name} killed ${npc.name}.`);
         }
 
+        this.ui.updateLog(this.gameLog.getDisplayLines());
+        this.refreshTurnState();
+    }
+
+    doLootNpc(npc, lootItem) {
+        if (this.actionPoints <= 0) return;
+        this.actionPoints--;
+
+        // Remove from equipment slot or inventory
+        if (lootItem._fromSlot) {
+            npc.equipment[lootItem._fromSlot] = null;
+        } else {
+            const idx = npc.inventory.indexOf(lootItem);
+            if (idx >= 0) npc.inventory.splice(idx, 1);
+        }
+
+        const { _fromSlot, ...item } = lootItem;
+        this.player.addItem(item);
+
+        const pos = { col: this.player.col, row: this.player.row };
+        this.gameLog.add('pickup', this.player.name, item.name, `${this.player.name} took ${item.name} from ${npc.name}'s body.`, pos);
+        this.broadcast('pickup', this.player.name, pos, `${this.player.name} looted ${item.name} from ${npc.name}.`);
         this.ui.updateLog(this.gameLog.getDisplayLines());
         this.refreshTurnState();
     }
@@ -565,6 +699,7 @@ export default class Game {
             equipSlot: item.equipSlot || null,
             actionEffect: item.actionEffect,
             dialogueEffect: item.dialogueEffect,
+            unlocks: item.unlocks || null,
         });
 
         const pos = { col: this.player.col, row: this.player.row };
@@ -574,12 +709,28 @@ export default class Game {
         this.refreshTurnState();
     }
 
-    doDoor(doorTarget) {
-        const targetZoneName = ZONES[doorTarget.zone].name;
+    doTraverse(door) {
+        if (door.locked) {
+            // Try to auto-use a matching key from inventory
+            const keyIndex = this.player.inventory.findIndex(i => i.unlocks === door.id);
+            if (keyIndex < 0) {
+                const msg = `${this.player.name} tries to open the door, but it won't budge.`;
+                this.gameLog.add('event', this.player.name, null, msg, { col: this.player.col, row: this.player.row });
+                this.broadcast('event', this.player.name, { col: this.player.col, row: this.player.row }, msg);
+                this.ui.updateLog(this.gameLog.getDisplayLines());
+                return;
+            }
+            const key = this.player.inventory.splice(keyIndex, 1)[0];
+            door.locked = false;
+            const pos = { col: this.player.col, row: this.player.row };
+            this.gameLog.add('use_item', this.player.name, key.name, `${this.player.name} used ${key.name}. The door swings open.`, pos);
+            this.broadcast('use_item', this.player.name, pos, `${this.player.name} unlocked a door.`);
+        }
+        const targetZoneName = ZONES[door.target.zone].name;
         this.gameLog.add('door', this.player.name, targetZoneName, `${this.player.name} entered ${targetZoneName}.`);
         this.ui.updateLog(this.gameLog.getDisplayLines());
-        this.loadZone(doorTarget.zone);
-        this.player.moveTo(doorTarget.col, doorTarget.row);
+        this.loadZone(door.target.zone);
+        this.player.moveTo(door.target.col, door.target.row);
         this.movePoints = MAX_MOVE_POINTS;
         this.actionPoints = MAX_ACTION_POINTS;
         this.refreshTurnState();
@@ -649,6 +800,7 @@ export default class Game {
             equipSlot: item.equipSlot || null,
             actionEffect: item.actionEffect,
             dialogueEffect: item.dialogueEffect,
+            unlocks: item.unlocks || null,
             collected: false,
         });
 
@@ -665,13 +817,27 @@ export default class Game {
             const nc = col + dc;
             const nr = row + dr;
             if (!this.grid.isWalkable(nc, nr)) continue;
-            if (this.getEntityAt(nc, nr)) continue;
+            const entityThere = this.getEntityAt(nc, nr);
+            if (entityThere?.alive) continue;
             if (nc === this.player.col && nr === this.player.row && dc !== 0 && dr !== 0) continue;
             // Check no item already there
             if (this.getItemAt(nc, nr)) continue;
             return { col: nc, row: nr };
         }
         return null;
+    }
+
+    // --- Visual overlays ---
+
+    // One bubble per entity; if the entity speaks again this turn the bubble is replaced.
+    _setSpeechBubble(entityId, col, row, text, color) {
+        const idx = this.speechBubbles.findIndex(b => b.entityId === entityId);
+        const bubble = { entityId, col, row, text, color };
+        if (idx >= 0) {
+            this.speechBubbles[idx] = bubble;
+        } else {
+            this.speechBubbles.push(bubble);
+        }
     }
 
     // --- State ---
@@ -690,6 +856,12 @@ export default class Game {
             attackTargets: [],
             cursor: this.cursor,
             zoneName: ZONES[this.currentZoneIndex].name,
+            speechBubbles: this.speechBubbles,
+            movementTrails: this.movementTrails,
+            doors: this.doors,
+            thinkingNpc: this.thinkingNpc
+                ? { ...this.thinkingNpc, dots: this._thinkingDots }
+                : null,
         };
     }
 

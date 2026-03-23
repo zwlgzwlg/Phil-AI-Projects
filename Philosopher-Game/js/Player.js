@@ -2,8 +2,8 @@ export default class Player {
     constructor(col, row) {
         this.col = col;
         this.row = row;
-        this.hp = 100;
-        this.maxHp = 100;
+        this.hp = 45;
+        this.maxHp = 45;
         this.inventory = [];
         this.equipment = { head: null, body: null, feet: null, hands: null };
         this.baseDamage = 10;

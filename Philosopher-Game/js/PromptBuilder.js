@@ -77,18 +77,14 @@ ${worldInfo}
             }
         }
 
-        // Memory
+        // New events since this NPC's last turn (conversation history holds the rest)
         lines.push('');
-        lines.push('## MEMORY (what you have seen and heard)');
-        if (ctx.memory.length === 0) {
-            lines.push('Nothing has happened yet.');
+        lines.push('## NEW EVENTS (since your last turn)');
+        const newEvents = npc.memory.slice(npc._lastSentMemoryIndex ?? 0);
+        if (newEvents.length === 0) {
+            lines.push('Nothing new has happened.');
         } else {
-            // Show last 30 entries to keep prompt manageable
-            const recent = ctx.memory.slice(-30);
-            if (ctx.memory.length > 30) {
-                lines.push(`(${ctx.memory.length - 30} earlier events omitted)`);
-            }
-            for (const m of recent) {
+            for (const m of newEvents) {
                 lines.push(`- [Turn ${m.turn}] ${m.details}`);
             }
         }

@@ -2,7 +2,7 @@ import PromptBuilder from './PromptBuilder.js';
 
 const NPC_MOVE_POINTS = 3;
 const NPC_ACTION_POINTS = 1;
-const HEARING_RANGE = 5;
+const HEARING_RANGE = 99;
 const MELEE_RANGE = 2;
 
 export default class NPC {
@@ -70,6 +70,7 @@ export default class NPC {
         // LLM conversation state (set when entering a zone)
         this.systemPrompt = null;
         this.conversationHistory = [];  // [{role: 'user'|'assistant', content: string}]
+        this._lastSentMemoryIndex = 0;  // memory entries before this index have already been sent
     }
 
     // --- Turn setup (called by Game at start of NPC's turn) ---
@@ -145,12 +146,29 @@ export default class NPC {
         this.row = row;
     }
 
+    getDamage() {
+        let dmg = this.bio.baseDamage;
+        for (const item of Object.values(this.equipment)) {
+            if (item?.actionEffect?.damage) dmg += item.actionEffect.damage;
+        }
+        return dmg;
+    }
+
+    getArmor() {
+        let armor = 0;
+        for (const item of Object.values(this.equipment)) {
+            if (item?.actionEffect?.armor) armor += item.actionEffect.armor;
+        }
+        return armor;
+    }
+
     takeDamage(amount) {
-        this.conditions.hp = Math.max(0, this.conditions.hp - amount);
+        const reduced = Math.max(1, amount - this.getArmor());
+        this.conditions.hp = Math.max(0, this.conditions.hp - reduced);
         if (this.conditions.hp <= 0) {
             this.alive = false;
         }
-        return amount;
+        return reduced;
     }
 
     setCondition(key, value) {
@@ -175,6 +193,7 @@ export default class NPC {
     initConversation(zoneName) {
         this.systemPrompt = PromptBuilder.buildSystemPrompt(this, PromptBuilder.getWorldInfo(zoneName));
         this.conversationHistory = [];
+        this._lastSentMemoryIndex = 0;
     }
 
     // Build the messages array to send to the LLM for this turn
@@ -193,6 +212,9 @@ export default class NPC {
     recordTurn(turnPrompt, response) {
         this.conversationHistory.push({ role: 'user', content: turnPrompt });
         this.conversationHistory.push({ role: 'assistant', content: response });
+
+        // Mark all current memory as sent — next turn prompt will only show new events
+        this._lastSentMemoryIndex = this.memory.length;
 
         // Trim old turns to keep context manageable (keep last 20 exchanges)
         const maxMessages = 40; // 20 turns * 2 messages each

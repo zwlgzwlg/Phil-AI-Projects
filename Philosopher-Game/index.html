@@ -7,16 +7,21 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <div id="layout">
     <div id="game-wrapper">
         <div id="top-bar">
-            <span id="game-title">PHILOSOPHER</span>
+            <div id="top-bar-left">
+                <span id="game-title">PHILOSOPHER</span>
+                <span id="llm-status"></span>
+                <button id="btn-settings">⚙</button>
+                <button id="btn-debug">Debug</button>
+            </div>
             <div id="hud">
                 <span>HP: <strong id="hud-hp">100/100</strong></span>
                 <span>Zone: <strong id="hud-zone">Agora</strong></span>
                 <span>Turn: <strong id="hud-turn">1</strong></span>
                 <span>Move: <strong id="hud-move">4/4</strong></span>
                 <span>Action: <strong id="hud-action">1/1</strong></span>
-                <button id="btn-debug">Debug</button>
             </div>
         </div>
 
@@ -43,26 +48,62 @@
                     <div id="inventory-header">Inventory</div>
                     <div id="inventory-list"></div>
                 </div>
-                <div id="log-col">
-                    <div id="log-header">Game Log</div>
-                    <div id="log-panel"></div>
-                </div>
             </div>
         </div>
+
+        <div id="log-col">
+            <div id="log-header">Game Log</div>
+            <div id="log-panel"></div>
+        </div>
     </div>
+
+    <!-- Debug side panel -->
+    <div id="debug-side" class="hidden">
+        <div id="debug-header">
+            <span>LLM Debug</span>
+            <div id="debug-tabs"></div>
+            <button id="debug-close-btn">✕</button>
+        </div>
+        <div id="debug-body"></div>
+    </div>
+    </div><!-- #layout -->
 
     <!-- Context menu -->
     <div id="context-menu" class="hidden"></div>
 
-    <!-- Debug panel -->
-    <div id="debug-overlay" class="hidden">
-        <div id="debug-panel">
-            <div id="debug-header">
-                <span>LLM Debug Log</span>
-                <div id="debug-tabs"></div>
-                <button id="debug-close-btn">Close</button>
+    <!-- API Key modal -->
+    <div id="key-modal" class="hidden">
+        <div id="key-modal-box">
+            <div id="key-modal-title">API KEY</div>
+            <div id="key-modal-desc">
+                NPCs are powered by Claude. Your key is stored in your browser only —
+                requests go directly to <strong>api.anthropic.com</strong>, never to this server.<br><br>
+                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get a key at console.anthropic.com →</a><br><br>
+                <em>Your key is visible in browser devtools (Network tab). This is expected.</em>
             </div>
-            <div id="debug-body"></div>
+            <div id="key-input-row">
+                <input type="password" id="key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+                <button id="key-show-btn">Show</button>
+            </div>
+            <div id="key-modal-status"></div>
+            <div id="key-modal-buttons">
+                <button id="key-save-btn">Save Key</button>
+                <button id="key-remove-btn">Remove</button>
+                <button id="key-cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Splash screen -->
+    <div id="splash">
+        <div id="splash-content">
+            <div id="splash-title">PHILOSOPHER</div>
+            <div id="splash-subtitle">A turn-based RPG in ancient Athens</div>
+            <div id="splash-status"></div>
+            <div id="splash-buttons">
+                <button id="btn-play">Play</button>
+                <button id="btn-setup">API Key</button>
+            </div>
         </div>
     </div>
 

@@ -30,16 +30,20 @@ export default class UI {
         this.contextMenu = document.getElementById('context-menu');
 
         // Debug panel
-        this.debugOverlay = document.getElementById('debug-overlay');
+        this.debugSide = document.getElementById('debug-side');
         this.debugTabs = document.getElementById('debug-tabs');
         this.debugBody = document.getElementById('debug-body');
         this.debugCloseBtn = document.getElementById('debug-close-btn');
         this.btnDebug = document.getElementById('btn-debug');
 
+        // Settings button
+        this.btnSettings = document.getElementById('btn-settings');
+
         // Callbacks
         this.onEndTurn = null;
         this.onSpeak = null;
         this.onToggleDebug = null;
+        this.onOpenKeyModal = null;
 
         this._bindEvents();
         this.clearInfoPane();
@@ -59,7 +63,8 @@ export default class UI {
         this.speechInput.addEventListener('keyup', (e) => e.stopPropagation());
 
         this.btnDebug.addEventListener('click', () => this.onToggleDebug?.());
-        this.debugCloseBtn.addEventListener('click', () => this.hideDebugPanel());
+        this.debugCloseBtn.addEventListener('click', () => this.onToggleDebug?.());
+        this.btnSettings.addEventListener('click', () => this.onOpenKeyModal?.());
 
         // Close context menu on any left click or escape
         document.addEventListener('click', () => this.closeContextMenu());
@@ -381,7 +386,7 @@ export default class UI {
     // --- Debug panel ---
 
     showDebugPanel(conversations) {
-        this.debugOverlay.classList.remove('hidden');
+        this.debugSide.classList.remove('hidden');
         this.btnDebug.classList.add('debug-active');
 
         const npcIds = Object.keys(conversations);
@@ -441,7 +446,7 @@ export default class UI {
     }
 
     hideDebugPanel() {
-        this.debugOverlay.classList.add('hidden');
+        this.debugSide.classList.add('hidden');
         this.btnDebug.classList.remove('debug-active');
     }
 
