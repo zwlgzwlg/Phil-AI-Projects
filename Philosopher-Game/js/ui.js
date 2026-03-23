@@ -1,4 +1,6 @@
 export default class UI {
+    static _SLOT_LABELS = { head: 'Headwear', body: 'Bodywear', feet: 'Footwear', hands: 'Handheld' };
+
     constructor() {
         // HUD
         this.hudHp = document.getElementById('hud-hp');
@@ -15,25 +17,32 @@ export default class UI {
         // Log
         this.logPanel = document.getElementById('log-panel');
 
-        // Inventory (persistent pane)
+        // Inventory pane
         this.inventoryList = document.getElementById('inventory-list');
+
+        // Equipment pane
+        this.equipmentList = document.getElementById('equipment-list');
+
+        // Hover info pane
+        this.infoPanel = document.getElementById('info-panel');
 
         // Context menu
         this.contextMenu = document.getElementById('context-menu');
 
-        // Inspect panel
-        this.inspectOverlay = document.getElementById('inspect-overlay');
-        this.inspectTitle = document.getElementById('inspect-title');
-        this.inspectBody = document.getElementById('inspect-body');
-        this.inspectCloseBtn = document.getElementById('inspect-close-btn');
+        // Debug panel
+        this.debugOverlay = document.getElementById('debug-overlay');
+        this.debugTabs = document.getElementById('debug-tabs');
+        this.debugBody = document.getElementById('debug-body');
+        this.debugCloseBtn = document.getElementById('debug-close-btn');
+        this.btnDebug = document.getElementById('btn-debug');
 
         // Callbacks
         this.onEndTurn = null;
         this.onSpeak = null;
-        this.onContextAction = null;  // (actionType, col, row, extra) => void
-        this.onUseItem = null;        // (itemIndex) => void
+        this.onToggleDebug = null;
 
         this._bindEvents();
+        this.clearInfoPane();
     }
 
     _bindEvents() {
@@ -49,15 +58,13 @@ export default class UI {
         });
         this.speechInput.addEventListener('keyup', (e) => e.stopPropagation());
 
-        this.inspectCloseBtn.addEventListener('click', () => this.closeInspect());
+        this.btnDebug.addEventListener('click', () => this.onToggleDebug?.());
+        this.debugCloseBtn.addEventListener('click', () => this.hideDebugPanel());
 
         // Close context menu on any left click or escape
         document.addEventListener('click', () => this.closeContextMenu());
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeContextMenu();
-                this.closeInspect();
-            }
+            if (e.key === 'Escape') this.closeContextMenu();
         });
     }
 
@@ -93,9 +100,6 @@ export default class UI {
     }
 
     // --- Context menu ---
-
-    // Show a context menu at screen position (x, y) with a list of options.
-    // Each option: { label, action, disabled? }
     showContextMenu(x, y, options) {
         this.contextMenu.innerHTML = '';
         for (const opt of options) {
@@ -113,12 +117,10 @@ export default class UI {
             this.contextMenu.appendChild(item);
         }
 
-        // Position
         this.contextMenu.style.left = x + 'px';
         this.contextMenu.style.top = y + 'px';
         this.contextMenu.classList.remove('hidden');
 
-        // Keep on screen
         requestAnimationFrame(() => {
             const rect = this.contextMenu.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
@@ -134,34 +136,109 @@ export default class UI {
         this.contextMenu.classList.add('hidden');
     }
 
-    // --- Inspect panel ---
+    // --- Hover info pane ---
 
-    showInspect(info) {
-        this.inspectBody.innerHTML = '';
-        this.inspectTitle.textContent = info.name || 'Inspect';
+    // Renders info for whatever is currently hovered (entity, item, or player).
+    // info: { name, description?, hp?, alive?, damage?, armor?,
+    //         visibleEquipment?, equipment?, equipSlot?, actionEffect?,
+    //         dialogueEffect?, inventory?, worldItem? }
+    updateInfoPane(info) {
+        const p = this.infoPanel;
+        p.innerHTML = '';
+        if (!info) { this.clearInfoPane(); return; }
 
-        const addRow = (label, value) => {
-            if (value === undefined || value === null) return;
-            const row = document.createElement('div');
-            row.classList.add('inspect-row');
-            row.innerHTML = `<span class="inspect-label">${label}:</span> <span class="inspect-value">${value}</span>`;
-            this.inspectBody.appendChild(row);
-        };
+        // Title row: name + HP inline
+        const titleRow = document.createElement('div');
+        titleRow.classList.add('info-title-row');
 
-        if (info.description) addRow('Description', info.description);
-        if (info.hp !== undefined) addRow('HP', info.hp);
-        if (info.alive !== undefined) addRow('Status', info.alive ? 'Alive' : 'Dead');
-        if (info.damage !== undefined) addRow('Damage', info.damage);
-        if (info.armor !== undefined) addRow('Armor', info.armor);
-        if (info.actionEffect) addRow('Combat effect', JSON.stringify(info.actionEffect));
-        if (info.dialogueEffect) addRow('Dialogue effect', JSON.stringify(info.dialogueEffect));
-        if (info.inventory && info.inventory.length > 0) addRow('Carrying', info.inventory.join(', '));
+        const titleEl = document.createElement('span');
+        titleEl.classList.add('info-title');
+        titleEl.textContent = info.name || '?';
+        titleRow.appendChild(titleEl);
 
-        this.inspectOverlay.classList.remove('hidden');
+        if (info.hp !== undefined) {
+            const hpEl = document.createElement('span');
+            hpEl.classList.add('info-hp');
+            if (info.alive === false) hpEl.classList.add('info-dead');
+            hpEl.textContent = `HP ${info.hp}`;
+            titleRow.appendChild(hpEl);
+        }
+        p.appendChild(titleRow);
+
+        // Slot / type badge
+        if (info.equipSlot) {
+            const badge = document.createElement('div');
+            badge.classList.add('info-badge');
+            badge.textContent = UI._SLOT_LABELS[info.equipSlot] || info.equipSlot;
+            if (info.worldItem) badge.classList.add('info-badge-world');
+            p.appendChild(badge);
+        }
+
+        // Description
+        if (info.description) {
+            const desc = document.createElement('div');
+            desc.classList.add('info-description');
+            desc.textContent = info.description;
+            p.appendChild(desc);
+        }
+
+        // Visible equipment (NPC world hover)
+        if (info.visibleEquipment) {
+            const eq = info.visibleEquipment;
+            const div = document.createElement('div');
+            div.classList.add('info-eq-list');
+            div.textContent = [eq.head, eq.body, eq.feet, eq.hands].join('  ·  ');
+            p.appendChild(div);
+        }
+
+        // Player equipment (self hover — full names)
+        if (info.equipment) {
+            const eq = info.equipment;
+            const parts = [
+                eq.head  ? eq.head.name  : 'bare head',
+                eq.body  ? eq.body.name  : 'bare body',
+                eq.feet  ? eq.feet.name  : 'bare feet',
+                eq.hands ? eq.hands.name : 'empty handed',
+            ];
+            const div = document.createElement('div');
+            div.classList.add('info-eq-list');
+            div.textContent = parts.join('  ·  ');
+            p.appendChild(div);
+        }
+
+        // Stats — only shown for items in inventory/equipment (not world hover)
+        if (!info.worldItem) {
+            const stats = [];
+            if (info.damage !== undefined)               stats.push(`Damage: ${info.damage}`);
+            if (info.armor  !== undefined)               stats.push(`Armor: ${info.armor}`);
+            if (info.actionEffect?.damage)               stats.push(`+${info.actionEffect.damage} dmg`);
+            if (info.actionEffect?.armor)                stats.push(`+${info.actionEffect.armor} armor`);
+            if (info.dialogueEffect?.trust)              stats.push(`+${info.dialogueEffect.trust} trust`);
+            if (info.dialogueEffect?.resurrect)          stats.push('can resurrect');
+
+            if (stats.length) {
+                const statEl = document.createElement('div');
+                statEl.classList.add('info-stats');
+                statEl.textContent = stats.join('  ·  ');
+                p.appendChild(statEl);
+            }
+        } else if (info.equipSlot) {
+            const hint = document.createElement('div');
+            hint.classList.add('info-hint');
+            hint.textContent = 'Pick it up to learn more.';
+            p.appendChild(hint);
+        }
+
+        if (info.inventory && info.inventory.length > 0) {
+            const inv = document.createElement('div');
+            inv.classList.add('info-carrying');
+            inv.textContent = 'Carrying: ' + info.inventory.join(', ');
+            p.appendChild(inv);
+        }
     }
 
-    closeInspect() {
-        this.inspectOverlay.classList.add('hidden');
+    clearInfoPane() {
+        this.infoPanel.innerHTML = '<div class="info-empty">Hover to inspect.</div>';
     }
 
     // --- Log ---
@@ -179,8 +256,8 @@ export default class UI {
         this.logPanel.scrollTop = this.logPanel.scrollHeight;
     }
 
-    // --- Inventory (persistent pane) ---
-    updateInventory(inventory, onUseItem, onDropItem) {
+    // --- Inventory pane ---
+    updateInventory(inventory, onUseItem, onDropItem, onEquipItem) {
         this.inventoryList.innerHTML = '';
 
         if (inventory.length === 0) {
@@ -199,35 +276,174 @@ export default class UI {
             name.classList.add('inventory-item-name');
             name.textContent = item.name;
 
-            const desc = document.createElement('div');
-            desc.classList.add('inventory-item-desc');
-            desc.textContent = item.description;
-
             slot.appendChild(name);
-            slot.appendChild(desc);
 
-            // Right-click on inventory item
+            // Hover → show full info in info pane
+            slot.addEventListener('mouseenter', () => {
+                this.updateInfoPane({
+                    name: item.name,
+                    description: item.description,
+                    equipSlot: item.equipSlot || null,
+                    actionEffect: item.actionEffect,
+                    dialogueEffect: item.dialogueEffect,
+                });
+            });
+            slot.addEventListener('mouseleave', () => this.clearInfoPane());
+
+            // Right-click → action menu
             slot.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                this.showContextMenu(e.clientX, e.clientY, [
-                    { label: `Inspect ${item.name}`, action: () => this.showInspect({
-                        name: item.name,
-                        description: item.description,
-                        actionEffect: item.actionEffect,
-                        dialogueEffect: item.dialogueEffect,
-                    })},
-                    { label: `Use ${item.name}`, action: () => onUseItem?.(index) },
-                    { label: `Drop ${item.name}`, action: () => onDropItem?.(index) },
-                    { label: 'Cancel', action: () => {} },
-                ]);
+                const options = [];
+                if (item.equipSlot) {
+                    options.push({ label: `Equip ${item.name}`, action: () => onEquipItem?.(index) });
+                }
+                options.push({ label: `Use ${item.name}`, action: () => onUseItem?.(index) });
+                options.push({ label: `Drop ${item.name}`, action: () => onDropItem?.(index) });
+                options.push({ label: 'Cancel', action: () => {} });
+                this.showContextMenu(e.clientX, e.clientY, options);
             });
 
             this.inventoryList.appendChild(slot);
         });
     }
 
-    isInventoryActive() {
-        return false; // No overlay anymore
+    // --- Equipment pane ---
+    updateEquipment(equipment, onUnequip) {
+        this.equipmentList.innerHTML = '';
+        const SLOTS = [
+            { key: 'head',  label: 'Head' },
+            { key: 'body',  label: 'Body' },
+            { key: 'feet',  label: 'Feet' },
+            { key: 'hands', label: 'Hands' },
+        ];
+
+        for (const { key, label } of SLOTS) {
+            const item = equipment[key];
+            const row = document.createElement('div');
+            row.classList.add('equip-slot');
+            if (item) row.classList.add('equip-filled');
+
+            const labelEl = document.createElement('span');
+            labelEl.classList.add('equip-slot-label');
+            labelEl.textContent = label;
+
+            const itemEl = document.createElement('span');
+            itemEl.classList.add('equip-slot-item');
+            if (item) {
+                itemEl.textContent = item.name;
+            } else {
+                itemEl.classList.add('equip-empty');
+                itemEl.textContent = '—';
+            }
+
+            row.appendChild(labelEl);
+            row.appendChild(itemEl);
+
+            if (item) {
+                // Hover → full info
+                row.addEventListener('mouseenter', () => {
+                    this.updateInfoPane({
+                        name: item.name,
+                        description: item.description,
+                        equipSlot: item.equipSlot || key,
+                        actionEffect: item.actionEffect,
+                        dialogueEffect: item.dialogueEffect,
+                    });
+                });
+                row.addEventListener('mouseleave', () => this.clearInfoPane());
+
+                // Right-click → unequip
+                row.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showContextMenu(e.clientX, e.clientY, [
+                        { label: `Unequip ${item.name}`, action: () => onUnequip?.(key) },
+                        { label: 'Cancel', action: () => {} },
+                    ]);
+                });
+            }
+
+            this.equipmentList.appendChild(row);
+        }
+    }
+
+    // --- Debug panel ---
+
+    showDebugPanel(conversations) {
+        this.debugOverlay.classList.remove('hidden');
+        this.btnDebug.classList.add('debug-active');
+
+        const npcIds = Object.keys(conversations);
+        if (npcIds.length === 0) {
+            this.debugBody.innerHTML = '<div class="debug-empty">No NPC conversations yet.</div>';
+            return;
+        }
+
+        if (!this._debugSelectedNpc || !conversations[this._debugSelectedNpc]) {
+            this._debugSelectedNpc = npcIds[0];
+        }
+
+        this.debugTabs.innerHTML = '';
+        for (const id of npcIds) {
+            const tab = document.createElement('button');
+            tab.classList.add('debug-tab');
+            if (id === this._debugSelectedNpc) tab.classList.add('debug-tab-active');
+            tab.textContent = conversations[id].npcName;
+            tab.addEventListener('click', () => {
+                this._debugSelectedNpc = id;
+                this.showDebugPanel(conversations);
+            });
+            this.debugTabs.appendChild(tab);
+        }
+
+        const conv = conversations[this._debugSelectedNpc];
+        this.debugBody.innerHTML = '';
+
+        const sysSection = this._debugSection('System Prompt', conv.systemPrompt, 'debug-system');
+        this.debugBody.appendChild(sysSection);
+
+        for (const t of conv.turns) {
+            const turnSection = document.createElement('div');
+            turnSection.classList.add('debug-turn');
+
+            const turnHeader = document.createElement('div');
+            turnHeader.classList.add('debug-turn-header');
+            turnHeader.textContent = `Turn ${t.turn}` + (t.error ? ' [ERROR]' : '');
+            turnSection.appendChild(turnHeader);
+
+            turnSection.appendChild(this._debugSection('Prompt sent', t.turnPrompt, 'debug-prompt'));
+
+            if (t.rawResponse) {
+                turnSection.appendChild(this._debugSection('Raw response', t.rawResponse, 'debug-response'));
+            }
+            if (t.parsedDecision) {
+                turnSection.appendChild(this._debugSection('Parsed decision', JSON.stringify(t.parsedDecision, null, 2), 'debug-parsed'));
+            }
+            if (t.error) {
+                turnSection.appendChild(this._debugSection('Error', t.error, 'debug-error'));
+            }
+
+            this.debugBody.appendChild(turnSection);
+        }
+
+        this.debugBody.scrollTop = this.debugBody.scrollHeight;
+    }
+
+    hideDebugPanel() {
+        this.debugOverlay.classList.add('hidden');
+        this.btnDebug.classList.remove('debug-active');
+    }
+
+    _debugSection(title, content, className) {
+        const section = document.createElement('details');
+        section.classList.add('debug-section', className || '');
+        const summary = document.createElement('summary');
+        summary.textContent = title;
+        section.appendChild(summary);
+        const pre = document.createElement('pre');
+        pre.textContent = content;
+        section.appendChild(pre);
+        return section;
     }
 }

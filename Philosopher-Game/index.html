@@ -16,6 +16,7 @@
                 <span>Turn: <strong id="hud-turn">1</strong></span>
                 <span>Move: <strong id="hud-move">4/4</strong></span>
                 <span>Action: <strong id="hud-action">1/1</strong></span>
+                <button id="btn-debug">Debug</button>
             </div>
         </div>
 
@@ -30,6 +31,14 @@
             </div>
 
             <div id="side-col">
+                <div id="info-col">
+                    <div id="info-header">Info</div>
+                    <div id="info-panel"></div>
+                </div>
+                <div id="equipment-col">
+                    <div id="equipment-header">Equipment</div>
+                    <div id="equipment-list"></div>
+                </div>
                 <div id="inventory-col">
                     <div id="inventory-header">Inventory</div>
                     <div id="inventory-list"></div>
@@ -45,14 +54,15 @@
     <!-- Context menu -->
     <div id="context-menu" class="hidden"></div>
 
-    <!-- Inspect panel -->
-    <div id="inspect-overlay" class="hidden">
-        <div id="inspect-panel">
-            <div id="inspect-header">
-                <span id="inspect-title">Inspect</span>
-                <button id="inspect-close-btn">Close</button>
+    <!-- Debug panel -->
+    <div id="debug-overlay" class="hidden">
+        <div id="debug-panel">
+            <div id="debug-header">
+                <span>LLM Debug Log</span>
+                <div id="debug-tabs"></div>
+                <button id="debug-close-btn">Close</button>
             </div>
-            <div id="inspect-body"></div>
+            <div id="debug-body"></div>
         </div>
     </div>
 

@@ -22,7 +22,8 @@ ${worldInfo}
 - You do not know things your character wouldn't know. Only act on information from your memory log.
 - When you speak, keep it concise (1-3 sentences). You are in a game, not writing an essay.
 - You may lie, deceive, bargain, threaten, or cooperate — whatever fits your character.
-- You choose one movement and one action per turn. You must respond with valid JSON.
+- You choose one movement, one action, and write a private scheme per turn. You must respond with valid JSON.
+- The "scheme" field is your private internal monologue — use it to plan ahead, reason about the situation, and leave notes for your future self. No one else can see it. It is added to your memory for future turns.
 
 ## YOUR CHARACTER
 **Name:** ${ctx.bio.name}
@@ -115,7 +116,7 @@ ${worldInfo}
         // Response format
         lines.push('');
         lines.push('## RESPONSE FORMAT');
-        lines.push('Respond with a JSON object. Nothing else — no markdown, no explanation.');
+        lines.push('Respond with a JSON object. Nothing else — no markdown, no explanation. Incorrect JSON will cause your turn to be skipped.');
         lines.push('```');
         lines.push('{');
         lines.push('  "moveTo": {"col": <number>, "row": <number>} or null,');
@@ -124,7 +125,8 @@ ${worldInfo}
         lines.push('    "message": "<your speech>" (only for speak),');
         lines.push('    "targetId": "<id>" (only for attack),');
         lines.push('    "itemIndex": <number> (only for use_item/drop)');
-        lines.push('  } or null');
+        lines.push('  } or null,');
+        lines.push('  "scheme": "<your private thoughts and plans — only you can see this>"');
         lines.push('}');
         lines.push('```');
 

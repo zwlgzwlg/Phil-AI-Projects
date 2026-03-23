@@ -154,6 +154,7 @@ Philosopher-types
 - Costume: gives you a fake bio (with some discrepancies so the AI might see through it).
 - Magical Costume: you write a fake bio.
 - Intimidating sword: appears to do much more damage than it does.
+- Warhammer: a hit scrambles a recent scheme of the target.
 - Potion of Sophistry: using it causes your utterances for the next 5 turns to be edited into flowery language by AI. 
 - Potion of Poetry: using it causes your utterances to be converted into rhymes with the same gist for the next 5 turns. Rhymes will fit the theme of the conversation (e.g. iambic pentameter following iambic pentameter)
 - Potion of telepathy: drinking it gives you the ability to speak privately with another person for 5 turns. Every time you send a telepathic message, they gain a possible action of responding telepathically.

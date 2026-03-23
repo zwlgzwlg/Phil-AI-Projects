@@ -5,6 +5,7 @@ export default class Player {
         this.hp = 100;
         this.maxHp = 100;
         this.inventory = [];
+        this.equipment = { head: null, body: null, feet: null, hands: null };
         this.baseDamage = 10;
         this.symbol = '@';
         this.color = '#ffffff';
@@ -19,20 +20,16 @@ export default class Player {
 
     getDamage() {
         let dmg = this.baseDamage;
-        for (const item of this.inventory) {
-            if (item.actionEffect && item.actionEffect.damage) {
-                dmg += item.actionEffect.damage;
-            }
+        for (const item of Object.values(this.equipment)) {
+            if (item?.actionEffect?.damage) dmg += item.actionEffect.damage;
         }
         return dmg;
     }
 
     getArmor() {
         let armor = 0;
-        for (const item of this.inventory) {
-            if (item.actionEffect && item.actionEffect.armor) {
-                armor += item.actionEffect.armor;
-            }
+        for (const item of Object.values(this.equipment)) {
+            if (item?.actionEffect?.armor) armor += item.actionEffect.armor;
         }
         return armor;
     }
@@ -43,8 +40,32 @@ export default class Player {
         return reduced;
     }
 
+    // Equip an item from inventory at the given index.
+    // Returns the previously equipped item in that slot (or null) — caller adds it back to inventory.
+    equipItem(item, inventoryIndex) {
+        const slot = item.equipSlot;
+        if (!slot || !(slot in this.equipment)) return null;
+        const swapped = this.equipment[slot];
+        this.equipment[slot] = item;
+        this.inventory.splice(inventoryIndex, 1);
+        return swapped;
+    }
+
+    // Unequip whatever is in the given slot, returning it to inventory.
+    unequipItem(slot) {
+        const item = this.equipment[slot];
+        if (!item) return null;
+        this.equipment[slot] = null;
+        this.inventory.push(item);
+        return item;
+    }
+
     addItem(item) {
         this.inventory.push(item);
+    }
+
+    removeItem(index) {
+        return this.inventory.splice(index, 1)[0];
     }
 
     hasItem(id) {

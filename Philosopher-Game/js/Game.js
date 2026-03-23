@@ -4,6 +4,7 @@ import NPC from './NPC.js';
 import GameLog from './GameLog.js';
 import Renderer from './Renderer.js';
 import UI from './ui.js';
+import DebugLog from './DebugLog.js';
 import { ZONES, NPC_DATA, ITEM_DATA } from './data.js';
 
 const TILE_SIZE = 40;
@@ -16,6 +17,7 @@ export default class Game {
         this.renderer = new Renderer(canvas, TILE_SIZE);
         this.ui = new UI();
         this.gameLog = new GameLog();
+        this.debugLog = new DebugLog();
         this.canvas = canvas;
 
         this.turn = 1;
@@ -35,6 +37,14 @@ export default class Game {
         // Bind UI callbacks
         this.ui.onEndTurn = () => this.endPlayerTurn();
         this.ui.onSpeak = (text) => this.handleSpeak(text);
+        this.ui.onToggleDebug = () => {
+            const enabled = this.debugLog.toggle();
+            if (enabled) {
+                this.ui.showDebugPanel(this.debugLog.getAll());
+            } else {
+                this.ui.hideDebugPanel();
+            }
+        };
 
         // Left click: move
         canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
@@ -43,6 +53,14 @@ export default class Game {
         canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             this.handleCanvasRightClick(e);
+        });
+
+        // Hover: update info pane
+        this._hoverKey = null;
+        canvas.addEventListener('mousemove', (e) => this.handleCanvasHover(e));
+        canvas.addEventListener('mouseleave', () => {
+            this._hoverKey = null;
+            this.ui.clearInfoPane();
         });
 
         this.gameLog.add('door', this.player.name, ZONES[0].name, `${this.player.name} enters the ${ZONES[0].name}.`);
@@ -66,6 +84,7 @@ export default class Game {
             if (data) {
                 const npc = new NPC(npcId, data, data.col, data.row);
                 npc.initConversation(zoneData.name);
+                this.debugLog.recordSystemPrompt(npcId, data.name, npc.systemPrompt);
                 this.npcs.push(npc);
             }
         }
@@ -81,7 +100,10 @@ export default class Game {
                     symbol: data.symbol,
                     color: data.color,
                     name: data.name,
+                    visibleName: data.visibleName || data.name,
                     description: data.description,
+                    visibleDescription: data.visibleDescription || data.description,
+                    equipSlot: data.equipSlot || null,
                     actionEffect: data.actionEffect,
                     dialogueEffect: data.dialogueEffect,
                     collected: false,
@@ -148,7 +170,16 @@ export default class Game {
         this.computeReachable();
         this.updateControls();
         this.updateHud();
-        this.ui.updateInventory(this.player.inventory, (index) => this.handleUseItem(index), (index) => this.handleDropItem(index));
+        this.ui.updateInventory(
+            this.player.inventory,
+            (index) => this.handleUseItem(index),
+            (index) => this.handleDropItem(index),
+            (index) => this.handleEquipItem(index),
+        );
+        this.ui.updateEquipment(
+            this.player.equipment,
+            (slot) => this.handleUnequipItem(slot),
+        );
         this.render();
     }
 
@@ -205,6 +236,10 @@ export default class Game {
         this.phase = 'player_turn';
         this.refreshTurnState();
         this.ui.updateLog(this.gameLog.getDisplayLines());
+
+        if (this.debugLog.enabled) {
+            this.ui.showDebugPanel(this.debugLog.getAll());
+        }
     }
 
     runNPCTurn(npc) {
@@ -216,9 +251,33 @@ export default class Game {
         npc.computeAvailableActions(this.getGameState());
         npc.computeSurroundings(this.getGameState());
 
-        // Ask NPC what to do (placeholder AI; later: LLM with npc.getFullContext())
+        // Build the turn prompt (for debug logging even in placeholder mode)
         const turnContext = this.getGameState();
+        const { messages } = npc.buildLLMMessages(turnContext);
+        const turnPrompt = messages[messages.length - 1].content;
+
+        // Ask NPC what to do (placeholder AI; later: LLM API call)
         const decision = npc.decideAction(turnContext);
+
+        // Debug log: record what would be sent to LLM and what was decided
+        const rawResponse = JSON.stringify(decision, null, 2);
+        npc.recordTurn(turnPrompt, rawResponse);
+        this.debugLog.recordTurn(npc.id, this.turn, {
+            turnPrompt,
+            rawResponse,
+            parsedDecision: decision,
+        });
+
+        // Null decision means invalid JSON — skip this NPC's turn
+        if (!decision) {
+            this.gameLog.add('wait', npc.name, null, `${npc.name}'s turn was skipped (invalid response).`, { col: npc.col, row: npc.row });
+            return;
+        }
+
+        // Store scheme in NPC's private memory (only they can see it)
+        if (decision.scheme) {
+            npc.addMemory({ turn: this.turn, type: 'scheme', actor: npc.name, details: `[Private thought] ${decision.scheme}` });
+        }
 
         // Execute movement
         if (decision.moveTo) {
@@ -297,6 +356,7 @@ export default class Game {
                                 color: '#cccccc',
                                 name: item.name,
                                 description: item.description,
+                                equipSlot: item.equipSlot || null,
                                 actionEffect: item.actionEffect || null,
                                 dialogueEffect: item.dialogueEffect || null,
                                 collected: false,
@@ -337,6 +397,52 @@ export default class Game {
         this.render();
     }
 
+    // --- Input: hover = info pane ---
+
+    handleCanvasHover(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const col = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+        const row = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+        const key = `${col},${row}`;
+        if (key === this._hoverKey) return;
+        this._hoverKey = key;
+
+        // Player tile
+        if (col === this.player.col && row === this.player.row) {
+            this.ui.updateInfoPane({
+                name: this.player.name,
+                description: this.player.description,
+                hp: `${this.player.hp}/${this.player.maxHp}`,
+                alive: this.player.isAlive(),
+                damage: this.player.getDamage(),
+                armor: this.player.getArmor(),
+                equipment: this.player.equipment,
+            });
+            return;
+        }
+
+        // NPC
+        const npc = this.getEntityAt(col, row);
+        if (npc) {
+            this.ui.updateInfoPane(npc.getPublicInfo());
+            return;
+        }
+
+        // Item on ground — show world-visible info only
+        const item = this.getItemAt(col, row);
+        if (item) {
+            this.ui.updateInfoPane({
+                name: item.visibleName || item.name,
+                description: item.visibleDescription || item.description,
+                equipSlot: item.equipSlot || null,
+                worldItem: true,
+            });
+            return;
+        }
+
+        this.ui.clearInfoPane();
+    }
+
     // --- Input: right click = context menu ---
 
     handleCanvasRightClick(e) {
@@ -358,56 +464,24 @@ export default class Game {
         const inMelee = this.isInMeleeRange(col, row);
         const onPlayer = (col === this.player.col && row === this.player.row);
 
-        // Player's own tile
-        if (onPlayer) {
-            options.push({
-                label: 'Inspect self',
-                action: () => this.ui.showInspect({
-                    name: this.player.name,
-                    description: this.player.description || 'You.',
-                    hp: `${this.player.hp}/${this.player.maxHp}`,
-                    damage: this.player.getDamage(),
-                    armor: this.player.getArmor(),
-                    inventory: this.player.inventory.map(i => i.name),
-                }),
-            });
-        }
-
         // NPC on this tile?
         const npc = this.getEntityAt(col, row);
-        if (npc) {
+        if (npc && npc.alive && inMelee) {
             options.push({
-                label: `Inspect ${npc.name}`,
-                action: () => this.ui.showInspect(npc.getPublicInfo()),
+                label: `Attack ${npc.name}`,
+                disabled: !hasAction,
+                action: () => this.doAttack(npc),
             });
-            if (npc.alive && inMelee) {
-                options.push({
-                    label: `Attack ${npc.name}`,
-                    disabled: !hasAction,
-                    action: () => this.doAttack(npc),
-                });
-            }
         }
 
         // Item on this tile?
         const item = this.getItemAt(col, row);
-        if (item) {
+        if (item && onPlayer) {
             options.push({
-                label: `Inspect ${item.name}`,
-                action: () => this.ui.showInspect({
-                    name: item.name,
-                    description: item.description,
-                    actionEffect: item.actionEffect,
-                    dialogueEffect: item.dialogueEffect,
-                }),
+                label: `Pick up ${item.name}`,
+                disabled: !hasAction,
+                action: () => this.doPickup(item),
             });
-            if (onPlayer) {
-                options.push({
-                    label: `Pick up ${item.name}`,
-                    disabled: !hasAction,
-                    action: () => this.doPickup(item),
-                });
-            }
         }
 
         // Door on this tile?
@@ -459,6 +533,7 @@ export default class Game {
             id: item.id,
             name: item.name,
             description: item.description,
+            equipSlot: item.equipSlot || null,
             actionEffect: item.actionEffect,
             dialogueEffect: item.dialogueEffect,
         });
@@ -498,6 +573,32 @@ export default class Game {
         this.refreshTurnState();
     }
 
+    handleEquipItem(index) {
+        if (this.phase !== 'player_turn') return;
+        const item = this.player.inventory[index];
+        if (!item || !item.equipSlot) return;
+
+        const swapped = this.player.equipItem(item, index);
+        if (swapped) {
+            this.player.addItem(swapped);
+            this.gameLog.add('equip', this.player.name, item.name, `${this.player.name} equipped ${item.name}, unequipping ${swapped.name}.`);
+        } else {
+            this.gameLog.add('equip', this.player.name, item.name, `${this.player.name} equipped ${item.name}.`);
+        }
+        this.ui.updateLog(this.gameLog.getDisplayLines());
+        this.refreshTurnState();
+    }
+
+    handleUnequipItem(slot) {
+        if (this.phase !== 'player_turn') return;
+        const item = this.player.unequipItem(slot);
+        if (item) {
+            this.gameLog.add('unequip', this.player.name, item.name, `${this.player.name} unequipped ${item.name}.`);
+            this.ui.updateLog(this.gameLog.getDisplayLines());
+            this.refreshTurnState();
+        }
+    }
+
     handleDropItem(index) {
         if (this.phase !== 'player_turn') return;
 
@@ -516,6 +617,7 @@ export default class Game {
             color: '#cccccc',
             name: item.name,
             description: item.description,
+            equipSlot: item.equipSlot || null,
             actionEffect: item.actionEffect,
             dialogueEffect: item.dialogueEffect,
             collected: false,

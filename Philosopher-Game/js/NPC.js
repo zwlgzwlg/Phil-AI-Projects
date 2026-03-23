@@ -27,6 +27,8 @@ export default class NPC {
             maxActionPoints: data.actionPoints ?? NPC_ACTION_POINTS,
             hearingRange: data.hearingRange ?? HEARING_RANGE,
             dialogue: [...data.dialogue],  // fallback lines for placeholder AI
+            // Special abilities unique to this NPC (e.g. summon beast, command beast)
+            specialActions: [...(data.specialActions || [])],
         };
 
         // --- Conditions (temporary/novel traits) ---
@@ -36,6 +38,14 @@ export default class NPC {
             // e.g. { poisoned: true, convinced: false, suspicious: true }
             flags: { ...data.initialFlags },
         };
+
+        // --- Equipment ---
+        this.equipment = { head: null, body: null, feet: null, hands: null };
+        if (data.initialEquipment) {
+            for (const [slot, item] of Object.entries(data.initialEquipment)) {
+                if (slot in this.equipment) this.equipment[slot] = item;
+            }
+        }
 
         // --- Inventory ---
         this.inventory = [...(data.items || [])];
@@ -100,6 +110,11 @@ export default class NPC {
         for (let i = 0; i < this.inventory.length; i++) {
             this.availableActions.push({ type: 'use_item', itemIndex: i, itemName: this.inventory[i].name });
             this.availableActions.push({ type: 'drop', itemIndex: i, itemName: this.inventory[i].name });
+        }
+
+        // Special actions unique to this NPC
+        for (const sa of this.bio.specialActions) {
+            this.availableActions.push({ type: 'special_action', name: sa.name, description: sa.description });
         }
 
         // Wait (always)
@@ -183,7 +198,8 @@ export default class NPC {
         }
     }
 
-    // Parse the LLM's JSON response into a decision
+    // Parse the LLM's JSON response into a decision.
+    // Returns { moveTo, action, scheme } on success, or null on invalid JSON (turn skipped).
     static parseLLMResponse(responseText) {
         try {
             // Strip markdown code fences if present
@@ -195,16 +211,11 @@ export default class NPC {
             return {
                 moveTo: parsed.moveTo || null,
                 action: parsed.action || null,
+                scheme: parsed.scheme || null,
             };
         } catch (e) {
-            // If the response contains speech-like text, treat it as a speak action
-            if (responseText && responseText.length > 0 && responseText.length < 500) {
-                return {
-                    moveTo: null,
-                    action: { type: 'speak', message: responseText.trim() },
-                };
-            }
-            return { moveTo: null, action: null };
+            // Invalid JSON — turn is skipped
+            return null;
         }
     }
 
@@ -225,10 +236,11 @@ export default class NPC {
             return {
                 moveTo: null,
                 action: { type: 'speak', message },
+                scheme: null,
             };
         }
 
-        return { moveTo: null, action: null };
+        return { moveTo: null, action: null, scheme: null };
     }
 
     // --- Surroundings (computed by Game before decideAction) ---
@@ -316,6 +328,13 @@ export default class NPC {
             memory: [...this.memory],
             // Inventory
             inventory: this.inventory.map(i => ({ name: i.name, description: i.description })),
+            // Equipment
+            equipment: {
+                head: this.equipment.head?.name || null,
+                body: this.equipment.body?.name || null,
+                feet: this.equipment.feet?.name || null,
+                hands: this.equipment.hands?.name || null,
+            },
             // Position
             position: { col: this.col, row: this.row },
             // Nearby entities and items within perception range
@@ -329,16 +348,22 @@ export default class NPC {
         };
     }
 
-    // --- Public info (shown on Inspect) ---
+    // --- Public info (shown on world hover — only what is visibly apparent) ---
 
     getPublicInfo() {
+        const EMPTY_LABELS = { head: 'bare head', body: 'bare body', feet: 'bare feet', hands: 'empty handed' };
+        const visibleEquipment = {};
+        for (const slot of ['head', 'body', 'feet', 'hands']) {
+            const item = this.equipment[slot];
+            // Show visibleName if set, otherwise fall back to name, otherwise empty label
+            visibleEquipment[slot] = item ? (item.visibleName || item.name) : EMPTY_LABELS[slot];
+        }
         return {
             name: this.name,
             description: this.bio.description,
-            hp: this.conditions.hp,
-            maxHp: this.bio.maxHp,
+            hp: `${this.conditions.hp}/${this.bio.maxHp}`,
             alive: this.alive,
-            inventory: this.inventory.map(i => i.name),
+            visibleEquipment,
         };
     }
 }

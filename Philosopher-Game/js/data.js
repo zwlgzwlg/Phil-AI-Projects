@@ -184,28 +184,39 @@ export const NPC_DATA = {
 };
 
 // Item definitions
+// visibleName / visibleDescription: what observers see from the outside.
+// If omitted, falls back to name / description.
 export const ITEM_DATA = {
     sword: {
         name: 'Bronze Sword',
+        visibleName: 'Bronze Sword',
         symbol: '*',
         color: '#cccccc',
-        description: 'A short bronze sword. Deals extra damage in combat.',
+        description: 'A short bronze sword. +20 damage in combat.',
+        visibleDescription: 'A short bronze sword.',
+        equipSlot: 'hands',
         actionEffect: { damage: 20 },
         dialogueEffect: null,
     },
     robe: {
         name: "Philosopher's Robe",
+        visibleName: 'Fine Robe',
         symbol: '*',
         color: '#8844aa',
-        description: 'A fine robe. Light armour, and makes you look respectable in dialogue.',
+        description: "A philosopher's robe. +5 armor, +10 trust in dialogue.",
+        visibleDescription: 'A fine robe that marks its wearer as a man of learning.',
+        equipSlot: 'body',
         actionEffect: { armor: 5 },
         dialogueEffect: { trust: 10 },
     },
     tome: {
         name: 'Tome of Resurrection',
+        visibleName: 'Worn Tome',
         symbol: '*',
         color: '#44cc88',
         description: 'A mystical tome. Can resurrect a killed NPC as a ghost to argue for you.',
+        visibleDescription: 'A weathered tome bound in dark leather.',
+        equipSlot: null,
         actionEffect: null,
         dialogueEffect: { resurrect: true },
     },
